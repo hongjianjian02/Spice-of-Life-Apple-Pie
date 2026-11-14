@@ -1,8 +1,8 @@
 package com.tarinoita.solsweetpotato.item.foodcontainer;
 
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
-import net.minecraftforge.items.SlotItemHandler;
+import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.SlotItemHandler;
 
 import javax.annotation.Nonnull;
 
@@ -19,8 +19,9 @@ public class FoodSlot extends SlotItemHandler {
         }
         return super.mayPlace(stack);
     }
-    
+
     public static boolean canHold(@Nonnull ItemStack stack) {
-    	return stack.isEdible();
+        return !(stack.getItem() instanceof FoodContainerItem) && stack.canFitInsideContainerItems()
+            && stack.getFoodProperties(null) != null;
     }
 }

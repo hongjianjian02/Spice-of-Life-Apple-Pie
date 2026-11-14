@@ -1,30 +1,23 @@
 package com.tarinoita.solsweetpotato.tracking.benefits;
 
 import com.tarinoita.solsweetpotato.tracking.CapabilityHandler;
-import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ICapabilitySerializable;
-import net.minecraftforge.common.util.LazyOptional;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-public class EffectBenefitsCapability implements ICapabilitySerializable<CompoundTag>, Iterable<EffectBenefit> {
+public class EffectBenefitsCapability implements Iterable<EffectBenefit> {
     private final Set<EffectBenefit> effectBenefits = new HashSet<>();
 
-    private final LazyOptional<EffectBenefitsCapability> capabilityOptional = LazyOptional.of(() -> this);
     private static final String NBT_KEY_EFFECT_BENEFITS = "effect_benefits";
 
     public static EffectBenefitsCapability get(Player player) {
-        return player.getCapability(CapabilityHandler.effectBenefitsCapability)
-                .orElseThrow(EffectBenefitsCapability.EffectsBenefitsNotFoundException::new);
+        return player.getData(CapabilityHandler.EFFECT_BENEFITS);
     }
 
     public void addEffectBenefit(EffectBenefit b) {
@@ -37,20 +30,13 @@ public class EffectBenefitsCapability implements ICapabilitySerializable<Compoun
     }
 
     public void removeEffectBenefit(EffectBenefit b) {
-        effectBenefits.remove(b);
+        effectBenefits.removeIf(other -> other.getName().equals(b.getName()));
     }
 
     public void clear() {
         effectBenefits.clear();
     }
 
-    @Nonnull
-    @Override
-    public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> capability, @Nullable Direction side) {
-        return capability == CapabilityHandler.effectBenefitsCapability ? capabilityOptional.cast() : LazyOptional.empty();
-    }
-
-    @Override
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
 
@@ -61,7 +47,6 @@ public class EffectBenefitsCapability implements ICapabilitySerializable<Compoun
         return tag;
     }
 
-    @Override
     public void deserializeNBT(CompoundTag tag) {
     	ListTag list = tag.getList(NBT_KEY_EFFECT_BENEFITS, Tag.TAG_COMPOUND);
 

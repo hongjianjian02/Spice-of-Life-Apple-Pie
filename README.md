@@ -1,3 +1,10 @@
+## Minecraft 1.21.1 NeoForge port
+
+This checkout now targets **Minecraft 1.21.1**, **NeoForge 21.1.265+ (21.1.x)** and **Java 21**.
+Build with `./gradlew build` (Windows: `gradlew.bat build`). Install the JAR from `build/libs/`
+on both client and server. See [PORTING_1.21.1.md](PORTING_1.21.1.md) for migration notes,
+verification coverage and limitations. The original upstream description below is historical.
+
 <p align="center">
 	<img width=256px src="GitHub/logo.png" />
 </p>
@@ -47,7 +54,7 @@ This mod also features 3 commands:
 ### FAQs
 
 - Will you port to another version/Fabric?
-  - There are no plans for anything other than 1.18 Forge at the moment.
+  - This checkout supports 1.21.1 NeoForge. Older-version statements below describe the upstream project.
 - How do I make custom benefits?
   - Read the config, then read the wiki if you are still unsure.
 - Where is the server config located?

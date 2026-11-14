@@ -7,13 +7,13 @@
   ],
   "key": {
     "A": {
-      "item": "minecraft:iron_ingot"
+      "item": "minecraft:gold_ingot"
     },
     "B": {
-      "item": "solapplepie:lunchbag"
+      "item": "solapplepie:lunchbox"
     }
   },
   "result": {
-    "item": "solapplepie:lunchbox"
+    "id": "solapplepie:golden_lunchbox"
   }
 }

@@ -9,12 +9,12 @@ import net.minecraft.network.chat.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.event.entity.player.ItemTooltipEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
 
 import java.util.List;
 
@@ -22,18 +22,18 @@ import static com.tarinoita.solsweetpotato.lib.Localization.localized;
 import static com.tarinoita.solsweetpotato.lib.Localization.localizedComponent;
 
 @OnlyIn(Dist.CLIENT)
-@Mod.EventBusSubscriber(value = Dist.CLIENT, modid = SOLSweetPotato.MOD_ID)
+@EventBusSubscriber(value = Dist.CLIENT, modid = SOLSweetPotato.MOD_ID)
 public final class TooltipHandler {
 	@SubscribeEvent(priority = EventPriority.LOW)
 	public static void onItemTooltip(ItemTooltipEvent event) {
 		if (!SOLSweetPotatoConfig.isFoodTooltipEnabled()) return;
-		
+
 		Player player = event.getEntity();
 		if (player == null) return;
-		
+
 		Item food = event.getItemStack().getItem();
-		if (!food.isEdible()) return;
-		
+		if (food.getDefaultInstance().getFoodProperties(null) == null) return;
+
 		FoodList foodList = FoodList.get(player);
 		boolean hasBeenEaten = foodList.hasEaten(food);
 		boolean isAllowed = SOLSweetPotatoConfig.isAllowed(food);
@@ -53,7 +53,7 @@ public final class TooltipHandler {
 			}
 		}
 	}
-	
+
 	private static Component localizedTooltip(String path, ChatFormatting color) {
 		return localizedComponent("tooltip", path).withStyle(style -> style.applyFormat(color));
 	}
@@ -74,6 +74,6 @@ public final class TooltipHandler {
 
 		return tooltip;
 	}
-	
+
 	private TooltipHandler() {}
 }

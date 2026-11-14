@@ -11,9 +11,11 @@ import javax.annotation.Nullable;
 
 public class FoodContainerProvider implements MenuProvider {
     private String displayName;
+    private final net.minecraft.world.InteractionHand hand;
 
-    public FoodContainerProvider(String displayName) {
+    public FoodContainerProvider(String displayName, net.minecraft.world.InteractionHand hand) {
         this.displayName = displayName;
+        this.hand = hand;
     }
 
     @Override
@@ -24,6 +26,6 @@ public class FoodContainerProvider implements MenuProvider {
     @Nullable
     @Override
     public AbstractContainerMenu createMenu(int i, Inventory playerInventory, Player player) {
-        return new FoodContainer(i, playerInventory, player);
+        return new FoodContainer(i, playerInventory, player, hand);
     }
 }

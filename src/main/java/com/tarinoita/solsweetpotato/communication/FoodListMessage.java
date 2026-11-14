@@ -1,43 +1,19 @@
 package com.tarinoita.solsweetpotato.communication;
-
+import com.tarinoita.solsweetpotato.SOLSweetPotato;
 import com.tarinoita.solsweetpotato.tracking.FoodList;
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
-
-public final class FoodListMessage {
-	private CompoundTag capabilityNBT;
-	
-	public FoodListMessage(FoodList foodList) {
-		this.capabilityNBT = foodList.serializeNBT();
-	}
-	
-	public FoodListMessage(FriendlyByteBuf buffer) {
-		this.capabilityNBT = buffer.readNbt();
-	}
-	
-	public void write(FriendlyByteBuf buffer) {
-		buffer.writeNbt(capabilityNBT);
-	}
-	
-	public void handle(Supplier<NetworkEvent.Context> context) {
-		DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> Handler.handle(this, context));
-	}
-	
-	private static class Handler {
-		static void handle(FoodListMessage message, Supplier<NetworkEvent.Context> context) {
-			context.get().enqueueWork(() -> {
-				Player player = Minecraft.getInstance().player;
-				assert player != null;
-				FoodList.get(player).deserializeNBT(message.capabilityNBT);
-			});
-			context.get().setPacketHandled(true);
-		}
-	}
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+public record FoodListMessage(CompoundTag capabilityNBT) implements CustomPacketPayload {
+    public static final Type<FoodListMessage> TYPE = new Type<>(SOLSweetPotato.resourceLocation("foodlistmessage"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, FoodListMessage> STREAM_CODEC = StreamCodec.composite(
+        ByteBufCodecs.COMPOUND_TAG, FoodListMessage::capabilityNBT, FoodListMessage::new);
+    public FoodListMessage(FoodList list) { this(list.serializeNBT()); }
+    @Override public Type<FoodListMessage> type() { return TYPE; }
+    public static void handle(FoodListMessage message, IPayloadContext context) {
+        FoodList.get(context.player()).deserializeNBT(message.capabilityNBT);
+    }
 }

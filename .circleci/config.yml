@@ -3,7 +3,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/openjdk:8-jdk
+      - image: cimg/openjdk:21.0
 
     working_directory: ~/repo
 
@@ -34,7 +34,7 @@ jobs:
       - run:
           name: Set up the workspace for ci build
           command: |
-           ./gradlew setupCiWorkspace
+           ./gradlew classes
 
       - run:
           name: Clean the workspace ready for a fresh build.
@@ -55,4 +55,4 @@ jobs:
           key: v1-dependencies-{{ checksum "build.gradle" }}
 
       # run tests!
-      - run: gradle test
+      - run: ./gradlew test

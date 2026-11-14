@@ -10,8 +10,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.items.CapabilityItemHandler;
-
 
 public class FoodContainer extends AbstractContainerMenu {
     public static final int PLAYERSIZE = 4 * 9;
@@ -19,29 +17,20 @@ public class FoodContainer extends AbstractContainerMenu {
     public ItemStack containerItem;
     public int nslots;
 
-    private Inventory playerInventory;
+    private final Inventory playerInventory;
+    private final net.neoforged.neoforge.items.IItemHandlerModifiable inventory;
+    private final net.minecraft.world.InteractionHand hand;
 
-    public FoodContainer(int id, Inventory playerInventory, Player player) {
+    public FoodContainer(int id, Inventory playerInventory, Player player, net.minecraft.world.InteractionHand hand) {
         super(ContainerScreenRegistry.FOOD_CONTAINER.get(), id);
 
-        // When we hit the hotkey to open a food container, check held items first
-        if (player.getMainHandItem().getItem() instanceof FoodContainerItem) {
-            containerItem = player.getMainHandItem();
-        }
-        else if (player.getOffhandItem().getItem() instanceof FoodContainerItem) {
-            containerItem = player.getOffhandItem();
-        }
-        else {
-            for (ItemStack stack : playerInventory.items) {
-                if (stack.getItem() instanceof FoodContainerItem) {
-                    containerItem = stack;
-                    break;
-                }
-            }
-        }
-
+        this.hand = hand;
+        containerItem = player.getItemInHand(hand);
         this.playerInventory = playerInventory;
-        containerItem.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY).ifPresent(h -> {
+        var h = FoodContainerItem.getInventory(containerItem);
+        this.inventory = h;
+        if (h == null) throw new IllegalArgumentException("No lunch container in requested hand");
+        {
             nslots = h.getSlots();
             int slotsPerRow = h.getSlots();
             if (h.getSlots() > 9) {
@@ -59,7 +48,7 @@ public class FoodContainer extends AbstractContainerMenu {
                 int yPos = yStart + row * 18;
                 this.addSlot(new FoodSlot(h, j, xPos, yPos));
             }
-        });
+        }
 
         layoutPlayerInventorySlots(8, 84);
     }
@@ -73,22 +62,27 @@ public class FoodContainer extends AbstractContainerMenu {
                 return;
             }
         }
-        
+
+        if (clickTypeIn == ClickType.SWAP) {
+            ItemStack swap = dragType == 40 ? player.getOffhandItem() : player.getInventory().getItem(dragType);
+            if (swap == containerItem) return;
+        }
         super.clicked(slotId, dragType, clickTypeIn, player);
     }
-    
+
     @Override
     public ItemStack quickMoveStack(Player player, int slotId) {
+        if (slotId < 0 || slotId >= slots.size()) return ItemStack.EMPTY;
         Slot clickedSlot = slots.get(slotId);
-        if (clickedSlot == null || slotId < 0 || !clickedSlot.hasItem()) {
+        if (!clickedSlot.hasItem()) {
             return ItemStack.EMPTY;
         }
-        
+
         ItemStack clickedStack = clickedSlot.getItem();
         if (!FoodSlot.canHold(clickedStack)) {
             return ItemStack.EMPTY;
         }
-        
+
         final ItemStack unchangedCopy = clickedStack.copy();
         if (slotId < nslots) {
             // Item is in the FoodContainer, move it to inventory
@@ -97,15 +91,20 @@ public class FoodContainer extends AbstractContainerMenu {
             }
         } else {
             // Item is in the inventory, move it to the FoodContainer
-            if (!moveItemStackTo(clickedStack, 0, nslots, false)) {
-                return ItemStack.EMPTY;
+            // Vanilla's merge path mutates a slot copy and only calls setChanged().
+            // A component inventory must instead explicitly write the merged stack.
+            ItemStack remaining = clickedStack.copy();
+            for (int i = 0; i < nslots && !remaining.isEmpty(); i++) {
+                remaining = inventory.insertItem(i, remaining, false);
             }
+            if (remaining.getCount() == clickedStack.getCount()) return ItemStack.EMPTY;
+            clickedStack.setCount(remaining.getCount());
         }
-        
+
         if (clickedStack.isEmpty()) {
             clickedSlot.set(ItemStack.EMPTY);
         } else {
-            clickedSlot.setChanged();
+            clickedSlot.set(clickedStack);
         }
 
         if (clickedStack.getCount() == unchangedCopy.getCount()) {
@@ -113,7 +112,7 @@ public class FoodContainer extends AbstractContainerMenu {
         }
 
         clickedSlot.onTake(player, clickedStack);
-        return clickedStack;
+        return unchangedCopy;
      }
 
     private int addSlotRange(Inventory handler, int index, int x, int y, int amount, int dx) {
@@ -140,9 +139,9 @@ public class FoodContainer extends AbstractContainerMenu {
         topRow += 58;
         addSlotRange(playerInventory, 0, leftCol, topRow, 9, 18);
     }
-    
+
     @Override
     public boolean stillValid(Player player) {
-        return true;
+        return player.isAlive() && player.getItemInHand(hand) == containerItem;
     }
 }

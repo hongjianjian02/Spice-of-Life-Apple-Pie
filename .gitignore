@@ -21,3 +21,7 @@
 /classes/
 
 \.idea/
+
+# Local port verification logs
+/port-build.log
+/port-tests.log

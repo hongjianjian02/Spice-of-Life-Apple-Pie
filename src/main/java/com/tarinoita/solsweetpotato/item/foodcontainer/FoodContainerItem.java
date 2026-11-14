@@ -5,18 +5,13 @@ import com.tarinoita.solsweetpotato.tracking.FoodList;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.common.capabilities.ICapabilityProvider;
-import net.minecraftforge.event.ForgeEventFactory;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.network.NetworkHooks;
-import net.minecraftforge.items.CapabilityItemHandler;
-import net.minecraftforge.items.ItemStackHandler;
+import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.items.IItemHandlerModifiable;
 
 import javax.annotation.Nullable;
 
@@ -25,26 +20,16 @@ public class FoodContainerItem extends Item {
     private int nslots;
 
     public FoodContainerItem(int nslots, String displayName) {
-        super(new Properties().tab(CreativeModeTab.TAB_MISC).stacksTo(1).setNoRepair());
+        super(new Properties().stacksTo(1).component(net.minecraft.core.component.DataComponents.CONTAINER, net.minecraft.world.item.component.ItemContainerContents.EMPTY));
 
         this.displayName = displayName;
         this.nslots = nslots;
     }
 
     @Override
-    public boolean isEdible() {
-        return true;
-    }
-
-    @Override
-    public FoodProperties getFoodProperties() {
-        return new FoodProperties.Builder().build();
-    }
-
-    @Override
     public InteractionResultHolder<ItemStack> use(Level world, Player player, InteractionHand hand) {
         if (!world.isClientSide && player.isCrouching()) {
-            NetworkHooks.openScreen((ServerPlayer) player, new FoodContainerProvider(displayName), player.blockPosition());
+            ((ServerPlayer) player).openMenu(new FoodContainerProvider(displayName, hand), buf -> buf.writeEnum(hand));
         }
 
         if (!player.isCrouching()) {
@@ -68,14 +53,14 @@ public class FoodContainerItem extends Item {
     }
 
     private static boolean isInventoryEmpty(ItemStack container) {
-        ItemStackHandler handler = getInventory(container);
+        IItemHandlerModifiable handler = getInventory(container);
         if (handler == null) {
             return true;
         }
 
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack stack = handler.getStackInSlot(i);
-            if (!stack.isEmpty() && stack.isEdible()) {
+            if (!stack.isEmpty() && stack.getFoodProperties(null) != null) {
                 return false;
             }
         }
@@ -83,26 +68,23 @@ public class FoodContainerItem extends Item {
     }
 
     @Nullable
-    @Override
-    public ICapabilityProvider initCapabilities(ItemStack stack, @Nullable CompoundTag nbt) {
-        return new FoodContainerCapabilityProvider(stack, nslots);
-    }
-
-    @Nullable
-    public static ItemStackHandler getInventory(ItemStack bag) {
-        if (bag.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY).isPresent())
-            return (ItemStackHandler) bag.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY).resolve().get();
+    public static IItemHandlerModifiable getInventory(ItemStack bag) {
+        if (bag.getItem() instanceof FoodContainerItem item)
+            return new FoodContainerCapabilityProvider(bag, item.nslots);
         return null;
     }
 
     @Override
+    public UseAnim getUseAnimation(ItemStack stack) { return UseAnim.EAT; }
+
+    @Override
     public ItemStack finishUsingItem(ItemStack stack, Level world, LivingEntity entity) {
-        if (!(entity instanceof Player)) {
+        if (world.isClientSide || !(entity instanceof Player)) {
             return stack;
         }
 
         Player player = (Player) entity;
-        ItemStackHandler handler = getInventory(stack);
+        IItemHandlerModifiable handler = getInventory(stack);
         if (handler == null) {
             return stack;
         }
@@ -114,10 +96,11 @@ public class FoodContainerItem extends Item {
 
         ItemStack bestFood = handler.getStackInSlot(bestFoodSlot);
         ItemStack foodCopy = bestFood.copy();
-        if (bestFood.isEdible() && !bestFood.isEmpty()) {
+        if (bestFood.getFoodProperties(entity) != null && !bestFood.isEmpty()) {
             ItemStack result = bestFood.finishUsingItem(world, entity);
+            handler.setStackInSlot(bestFoodSlot, result);
             // put bowls/bottles etc. into player inventory
-            if (!result.isEdible()) {
+            if (result.getFoodProperties(entity) == null) {
                 handler.setStackInSlot(bestFoodSlot, ItemStack.EMPTY);
                 Player playerEntity = (Player) entity;
 
@@ -129,7 +112,7 @@ public class FoodContainerItem extends Item {
             if (!world.isClientSide) {
                 // Fire an event instead of directly updating the food list, so that
                 // SoL: Carrot Edition registers the eaten food too.
-                ForgeEventFactory.onItemUseFinish(player, foodCopy, 0, result);
+                EventHooks.onItemUseFinish(player, foodCopy, 0, result);
             }
         }
 
@@ -137,11 +120,11 @@ public class FoodContainerItem extends Item {
     }
 
     @Override
-    public int getUseDuration(ItemStack stack){
+    public int getUseDuration(ItemStack stack, LivingEntity entity){
         return 32;
     }
 
-    public static int getBestFoodSlot(ItemStackHandler handler, Player player) {
+    public static int getBestFoodSlot(IItemHandlerModifiable handler, Player player) {
         FoodList foodList = FoodList.get(player);
 
         double maxDiversity = -Double.MAX_VALUE;
@@ -149,7 +132,7 @@ public class FoodContainerItem extends Item {
         for (int i = 0; i < handler.getSlots(); i++) {
             ItemStack food = handler.getStackInSlot(i);
 
-            if (!food.isEdible() || food.isEmpty())
+            if (food.getFoodProperties(player) == null || food.isEmpty())
                 continue;
             double diversityChange = foodList.simulateFoodAdd(food.getItem());
             if (diversityChange > maxDiversity) {

@@ -9,26 +9,23 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.event.entity.living.LivingEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.neoforge.event.entity.living.LivingEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
 
 import java.util.*;
 
 /**
  * All updates to food diversity benefits go through this class.
  */
-@Mod.EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
+@EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
 public class BenefitsHandler {
     @SubscribeEvent
-    public static void tickBenefits(LivingEvent.LivingTickEvent event) {
-        if (!checkEvent(event)) {
-            return;
-        }
+    public static void tickBenefits(EntityTickEvent.Post event) {
+        if (!(event.getEntity() instanceof Player player) || !canProgress(player)) return;
 
-        Player player = (Player) event.getEntity();
-        
         if (!player.isAlive()) {
         	return;
         }
@@ -44,6 +41,7 @@ public class BenefitsHandler {
 
         FoodList foodList = FoodList.get(player);
         if (foodList.getFoodsEaten() < SOLSweetPotatoConfig.minFoodsToActivate()) {
+            removeAllBenefits(player);
             return;
         }
 
@@ -78,14 +76,15 @@ public class BenefitsHandler {
     @SubscribeEvent
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
     	Player player = event.getEntity();
-    	player.reviveCaps();
+
         removeAllBenefits(player);
-        player.invalidateCaps();
+
     }
 
     public static void removeAllBenefits(Player player) {
         List<List<Benefit>> benefitsList = ConfigHandler.getBenefitsList();
         benefitsList.forEach(bt -> bt.forEach(b -> b.removeFrom(player)));
+        EffectBenefitsCapability.get(player).clear();
     }
 
     public static void updatePlayer(LivingEvent event) {
@@ -99,7 +98,7 @@ public class BenefitsHandler {
     }
 
     public static void updatePlayer(Player player) {
-        if (player.level.isClientSide) {
+        if (player.level().isClientSide) {
             return;
         }
 
@@ -115,7 +114,11 @@ public class BenefitsHandler {
 
         Player player = (Player) event.getEntity();
 
-        if (player.level.isClientSide)
+        return canProgress(player);
+    }
+
+    private static boolean canProgress(Player player) {
+        if (player.level().isClientSide)
             return false;
 
         ServerPlayer serverPlayer = (ServerPlayer) player;

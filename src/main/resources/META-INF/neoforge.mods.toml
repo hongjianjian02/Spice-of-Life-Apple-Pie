@@ -1,0 +1,23 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="LGPL-2.1"
+[[mods]]
+modId="solapplepie"
+version="${mod_version}"
+displayName="Spice of Life: Apple Pie Edition"
+authors="tarinoita"
+credits="Vice, Kevun1, and the Spice of Life: Carrot Edition team"
+logoFile="logo 160.png"
+description='''Rewards a diverse diet with configurable attributes and effects. Benefits require maintaining dietary variety.'''
+[[dependencies.solapplepie]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.265,21.2)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.solapplepie]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+ordering="NONE"
+side="BOTH"

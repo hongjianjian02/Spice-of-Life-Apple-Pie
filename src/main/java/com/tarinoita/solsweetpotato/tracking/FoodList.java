@@ -3,15 +3,11 @@ package com.tarinoita.solsweetpotato.tracking;
 import com.tarinoita.solsweetpotato.ConfigHandler;
 import com.tarinoita.solsweetpotato.SOLSweetPotatoConfig;
 import com.tarinoita.solsweetpotato.api.FoodCapability;
-import com.tarinoita.solsweetpotato.api.SOLSweetPotatoAPI;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import net.minecraft.core.Direction;
 import net.minecraft.nbt.*;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.util.LazyOptional;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -23,25 +19,17 @@ public final class FoodList implements FoodCapability {
 	private static final String NBT_KEY_UNIQUE_FOOD = "food";
 	private static final String NBT_KEY_LAST_EATEN = "lastEaten";
 	private static final String NBT_KEY_FOODS_EATEN = "foodsEaten";
-	
+
 	public static FoodList get(Player player) {
-		return (FoodList) player.getCapability(SOLSweetPotatoAPI.foodCapability)
-			.orElseThrow(FoodListNotFoundException::new);
+		return player.getData(CapabilityHandler.FOOD);
 	}
 
 	private static final int MAX_FOODS_EATEN = 1000;
 	private int foodsEaten = 0;
 	// Keys - foods eaten, Values - lastEaten, i.e. # meals ago the food was last eaten
 	private final Map<FoodInstance, Integer> uniqueFoods = new HashMap<>();
-	
+
 	public FoodList() {}
-	
-	private final LazyOptional<FoodList> capabilityOptional = LazyOptional.of(() -> this);
-	
-	@Override
-	public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
-		return capability == SOLSweetPotatoAPI.foodCapability ? capabilityOptional.cast() : LazyOptional.empty();
-	}
 
 	@Nullable
 	private CompoundTag serializeUniqueFood(Map.Entry<FoodInstance, Integer> foodPair) {
@@ -61,12 +49,12 @@ public final class FoodList implements FoodCapability {
 
 		return tag;
 	}
-	
+
 	/** used for persistent storage */
 	@Override
 	public CompoundTag serializeNBT() {
 		CompoundTag tag = new CompoundTag();
-		
+
 		ListTag list = new ListTag();
 
 		uniqueFoods.entrySet().stream()
@@ -137,7 +125,7 @@ public final class FoodList implements FoodCapability {
 			foodMap.put(newlyEaten, 0);
 		}
 	}
-	
+
 	public void addFood(Item food) {
 		addFood(food, uniqueFoods);
 	}
@@ -227,11 +215,13 @@ public final class FoodList implements FoodCapability {
 			return ConfigHandler.complexityMap.get(food);
 		}
 
-		var foodProperties = food.item.getFoodProperties();
+		var foodProperties = food.item.getDefaultInstance().getFoodProperties(null);
 		if (foodProperties != null)
 		{
-			var nutrition = foodProperties.getNutrition();
-			var saturation = nutrition * foodProperties.getSaturationModifier();
+			var nutrition = foodProperties.nutrition();
+			// 1.21 stores the actual saturation gain (2 * nutrition * modifier).
+            // Preserve the 1.19.2 balance, which used nutrition * modifier.
+            var saturation = foodProperties.saturation() / 2f;
 			var average = ((saturation + nutrition) / 2);
 
 			if (average < 5) {
@@ -258,14 +248,14 @@ public final class FoodList implements FoodCapability {
 
 	@Override
 	public boolean hasEaten(Item food) {
-		if (!food.isEdible()) return false;
+		if (food.getDefaultInstance().getFoodProperties(null) == null) return false;
 		return uniqueFoods.containsKey(new FoodInstance(food));
 	}
-	
+
 	public void clearFood() {
 		uniqueFoods.clear();
 	}
-	
+
 	public Set<FoodInstance> getEatenFoods() {
 		return uniqueFoods.keySet();
 	}
@@ -277,7 +267,7 @@ public final class FoodList implements FoodCapability {
 	public void resetFoodsEaten() {
 		foodsEaten = 0;
 	}
-	
+
 	public static class FoodListNotFoundException extends RuntimeException {
 		public FoodListNotFoundException() {
 			super("Player must have food capability attached, but none was found.");

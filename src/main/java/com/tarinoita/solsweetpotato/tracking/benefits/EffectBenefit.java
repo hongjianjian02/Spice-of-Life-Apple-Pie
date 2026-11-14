@@ -1,6 +1,5 @@
 package com.tarinoita.solsweetpotato.tracking.benefits;
 
-
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.nbt.ByteTag;
 import net.minecraft.nbt.CompoundTag;
@@ -8,9 +7,7 @@ import net.minecraft.nbt.DoubleTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.ResourceLocationException;
-import net.minecraft.core.Registry;
-import net.minecraftforge.registries.IForgeRegistry;
-import net.minecraftforge.registries.RegistryManager;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 
@@ -18,7 +15,7 @@ import net.minecraft.world.effect.MobEffectInstance;
  * Each instance represents a specific potion effect. Handles logic for application to player.
  */
 public final class EffectBenefit extends Benefit{
-    private MobEffect effect;
+    private net.minecraft.core.Holder<MobEffect> effect;
     private final int DEFAULT_DURATION = 300;
     private final int REAPPLY_DURATION = 200;
 
@@ -27,7 +24,7 @@ public final class EffectBenefit extends Benefit{
     }
 
     public void applyTo(Player player) {
-        if (!checkUsage() || player.level.isClientSide)
+        if (!checkUsage() || player.level().isClientSide)
             return;
 
         EffectBenefitsCapability effectBenefits = EffectBenefitsCapability.get(player);
@@ -35,7 +32,7 @@ public final class EffectBenefit extends Benefit{
     }
 
     public void onTick(Player player) {
-        if (!checkUsage() || player.level.isClientSide)
+        if (!checkUsage() || player.level().isClientSide)
             return;
 
         // Only refresh this effect when less than REAPPLY_DURATION ticks remaining
@@ -49,7 +46,7 @@ public final class EffectBenefit extends Benefit{
     }
 
     public void removeFrom(Player player) {
-        if (!checkUsage() || player.level.isClientSide)
+        if (!checkUsage() || player.level().isClientSide)
             return;
 
         EffectBenefitsCapability effectBenefits = EffectBenefitsCapability.get(player);
@@ -70,9 +67,8 @@ public final class EffectBenefit extends Benefit{
     }
 
     private void createEffect() {
-        IForgeRegistry<MobEffect> registry = RegistryManager.ACTIVE.getRegistry(Registry.MOB_EFFECT_REGISTRY);
         try {
-            effect = registry.getValue(new ResourceLocation(name));
+            effect = BuiltInRegistries.MOB_EFFECT.getHolder(ResourceLocation.parse(name)).orElse(null);
         }
         catch (ResourceLocationException e) {
             markInvalid();

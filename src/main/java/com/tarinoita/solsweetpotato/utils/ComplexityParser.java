@@ -5,7 +5,7 @@ import com.tarinoita.solsweetpotato.tracking.FoodInstance;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.ResourceLocationException;
 import net.minecraft.world.item.Item;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.HashMap;
 import java.util.List;
@@ -34,18 +34,17 @@ public class ComplexityParser {
 
             Item item;
             try {
-                item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(foodString));
+                item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(foodString));
             }
             catch (ResourceLocationException e) {
                 SOLSweetPotato.LOGGER.warn("Invalid item name: " + foodString);
                 continue;
             }
-            if (item == null) {
-                SOLSweetPotato.LOGGER.warn("Invalid item name: " + foodString);
-                continue;
+            if (item == net.minecraft.world.item.Items.AIR) {
+                continue; // Optional mod food is not installed.
             }
 
-            if (!item.isEdible()) {
+            if (item.getDefaultInstance().getFoodProperties(null) == null) {
                 SOLSweetPotato.LOGGER.warn("Item is not food: " + foodString);
                 continue;
             }

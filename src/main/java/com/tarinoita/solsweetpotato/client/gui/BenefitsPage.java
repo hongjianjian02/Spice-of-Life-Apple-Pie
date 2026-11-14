@@ -4,14 +4,11 @@ import com.tarinoita.solsweetpotato.client.gui.elements.UILabel;
 import com.tarinoita.solsweetpotato.tracking.benefits.BenefitInfo;
 import com.tarinoita.solsweetpotato.utils.RomanNumber;
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.ResourceLocationException;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.IForgeRegistry;
-import net.minecraftforge.registries.RegistryManager;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -84,7 +81,7 @@ public class BenefitsPage extends Page {
     private String getAttributeName(String name){
         Attribute attribute;
         try {
-            attribute = ForgeRegistries.ATTRIBUTES.getValue(new ResourceLocation(name));
+            attribute = BuiltInRegistries.ATTRIBUTE.get(ResourceLocation.parse(name));
         }
         catch (ResourceLocationException e) {
             return "Invalid: " + name;
@@ -99,9 +96,8 @@ public class BenefitsPage extends Page {
 
     private String getEffectName(String name) {
         MobEffect effect;
-        IForgeRegistry<MobEffect> registry = RegistryManager.ACTIVE.getRegistry(Registry.MOB_EFFECT_REGISTRY);
         try {
-            effect = registry.getValue(new ResourceLocation(name));
+            effect = BuiltInRegistries.MOB_EFFECT.get(ResourceLocation.parse(name));
         }
         catch (ResourceLocationException e) {
             return "Invalid: " + name;
@@ -111,6 +107,6 @@ public class BenefitsPage extends Page {
             return "Invalid: " + name;
         }
 
-        return I18n.get(effect.getDisplayName().getString());
+        return effect.getDisplayName().getString();
     }
 }
