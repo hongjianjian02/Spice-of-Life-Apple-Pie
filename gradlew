@@ -1,4 +1,5 @@
 #!/bin/sh
+# Replaced 2026-11-15 by the hongjianjian02 fork with the Gradle 9.2.1 wrapper.
 
 #
 # Copyright © 2015-2021 the original authors.

@@ -1,38 +1,90 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-# This workflow will build a package using Gradle and then publish it to GitHub packages when a release is created
-# For more information see: https://github.com/actions/setup-java/blob/main/docs/advanced-usage.md#Publishing-using-gradle
-
-name: Gradle Package
+# Modified 2026-11-15 by hongjianjian02: distribute matching source and use explicit fork targets.
+name: Release Unofficial NeoForge Port
 
 on:
   release:
     types: [created]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - { uses: actions/checkout@v4, with: { fetch-depth: 0 } }
-      - name: "Set up JDK 21"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name }}
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
-        with: { distribution: "temurin", java-version: "21" }
-        
-      - name: "Build with Gradle"
-        id: build
-        run: "chmod +x gradlew && ./gradlew build publish"
-        
-      - name: Mod File Name
-        id: mod-file-name
-        run: echo "MOD_FILE_NAME=$(ls build/libs/)" >> "$GITHUB_OUTPUT"
-        
-      - name: "Upload to CurseForge"
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and verify distribution
+        run: chmod +x gradlew && ./gradlew releaseBundle
+      - name: Identify binary and matching source
+        id: files
+        shell: bash
+        run: |
+          set -euo pipefail
+          binaries=(build/libs/*.jar)
+          sources=(build/libs/*-sources.zip)
+          test "${#binaries[@]}" -eq 1
+          test "${#sources[@]}" -eq 1
+          echo "binary=${binaries[0]}" >> "$GITHUB_OUTPUT"
+          echo "source=${sources[0]}" >> "$GITHUB_OUTPUT"
+          echo "source_name=$(basename "${sources[0]}")" >> "$GITHUB_OUTPUT"
+      - name: Upload binary, complete source and license bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" build/libs/*.jar build/libs/*-sources.zip build/distributions/*-release.zip --clobber
+      - name: Resolve published source download
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          SOURCE_NAME: ${{ steps.files.outputs.source_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --json assets > "$RUNNER_TEMP/release-assets.json"
+          source_url=$(jq -r --arg name "$SOURCE_NAME" '.assets[] | select(.name == $name) | .url' "$RUNNER_TEMP/release-assets.json")
+          test -n "$source_url"
+          echo "url=$source_url" >> "$GITHUB_OUTPUT"
+      - name: Check optional CurseForge target
+        id: curseforge
+        env:
+          CF_PROJECT_ID: ${{ vars.CF_PROJECT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          enabled=false
+          if [[ -n "$CF_PROJECT_ID" && -n "$CF_API_TOKEN" ]]; then
+            [[ "$CF_PROJECT_ID" =~ ^[0-9]+$ ]] || { echo "CF_PROJECT_ID must be numeric"; exit 1; }
+            [[ "$REPOSITORY_VISIBILITY" == public ]] || { echo "Public CurseForge uploads need publicly accessible corresponding source"; exit 1; }
+            enabled=true
+          fi
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+      - name: Upload to explicitly configured CurseForge project
+        if: steps.curseforge.outputs.enabled == 'true'
         uses: itsmeow/curseforge-upload@v3
         with:
-          file_path: "build/libs/${{ steps.mod-file-name.outputs.MOD_FILE_NAME }}"
-          game_endpoint: "minecraft"
-          game_versions: "1.21.1,Java 21,NeoForge"
-          project_id: "704584"
-          token: "${{ secrets.CF_API_TOKEN }}"
+          file_path: ${{ steps.files.outputs.binary }}
+          game_endpoint: minecraft
+          game_versions: '1.21.1,Java 21,NeoForge'
+          project_id: ${{ vars.CF_PROJECT_ID }}
+          token: ${{ secrets.CF_API_TOKEN }}
+          display_name: 'Apple Pie Edition - Unofficial NeoForge Port'
+          changelog_type: markdown
+          changelog: |
+            Unofficial Minecraft 1.21.1 NeoForge port, not an official upstream release.
+            Upstream: https://github.com/txnimc/Spice-of-Life-Apple-Pie
+            License: GNU LGPL 2.1; original and third-party notices are included in the JAR.
+            Complete corresponding source for this exact binary: ${{ steps.source.outputs.url }}

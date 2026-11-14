@@ -1,3 +1,8 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.client.gui.elements;
 
 import com.mojang.blaze3d.systems.RenderSystem;

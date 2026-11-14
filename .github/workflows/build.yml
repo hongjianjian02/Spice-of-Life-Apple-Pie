@@ -1,3 +1,4 @@
+# Modified 2026-11-15 by the hongjianjian02 fork for the unofficial NeoForge port.
 name: Build NeoForge 1.21.1
 on: [push, pull_request, workflow_dispatch]
 jobs:
@@ -10,8 +11,11 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && ./gradlew build
+      - run: chmod +x gradlew && ./gradlew releaseBundle
       - uses: actions/upload-artifact@v4
         with:
           name: solapplepie-neoforge-1.21.1
-          path: build/libs/*.jar
+          path: |
+            build/libs/*.jar
+            build/libs/*-sources.zip
+            build/distributions/*-release.zip

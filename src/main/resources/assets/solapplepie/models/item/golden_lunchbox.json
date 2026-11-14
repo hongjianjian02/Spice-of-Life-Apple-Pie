@@ -1,4 +1,5 @@
 {
+  "_port_notice": "Modified 2026-11-15 by hongjianjian02: unofficial Minecraft 1.21.1 NeoForge port; original license retained.",
   "parent": "item/generated",
   "textures": {
     "layer0": "solapplepie:item/golden_lunchbox"

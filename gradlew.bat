@@ -1,3 +1,4 @@
+@rem Replaced 2026-11-15 by the hongjianjian02 fork with the Gradle 9.2.1 wrapper.
 @rem
 @rem Copyright 2015 the original author or authors.
 @rem

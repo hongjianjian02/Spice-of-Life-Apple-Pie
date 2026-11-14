@@ -1,3 +1,4 @@
+// Modified 2026-11-15 by the hongjianjian02 fork for the unofficial NeoForge port.
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -45,11 +46,150 @@ processResources {
     inputs.properties(props)
     filesMatching('META-INF/neoforge.mods.toml') { expand(props) }
     exclude '**/*.psd', '**/*.bbmodel'
+    from(layout.projectDirectory) {
+        include 'LICENSE.txt', 'NOTICE.txt', 'THIRD_PARTY_NOTICES.md', 'MODIFICATIONS.md', 'RELEASING.md'
+        include 'licenses/**'
+    }
+    dependsOn 'generateSourceInfo'
+    from(layout.buildDirectory.dir('generated/distribution'))
 }
 jar { manifest { attributes 'Implementation-Version': project.version } }
+// Full corresponding source, including build scripts, wrapper, tests and notices.
+// Explicit inputs keep private runtime configs, saves, caches and credentials out.
+def distributionSources = fileTree(layout.projectDirectory) {
+    include 'src/**', 'gradle/**', '.github/**', '.circleci/**', 'GitHub/**'
+    include 'gradlew', 'gradlew.bat', 'build.gradle', 'settings.gradle', 'gradle.properties'
+    include '*.md', 'LICENSE.txt', 'NOTICE.txt', 'licenses/**'
+    include '.gitattributes', '.gitignore', '.travis.yml'
+}
+def sourceInfoFile = layout.buildDirectory.file('generated/distribution/SOURCE_INFO.txt')
+def sourceRevision = providers.provider {
+    // Extracted source archives intentionally have no .git directory.
+    def packagedInfo = layout.projectDirectory.file('SOURCE_INFO.txt').asFile
+    if (packagedInfo.exists()) {
+        return packagedInfo.readLines('UTF-8').find { it.startsWith('Base Git revision') }.split(': ', 2)[1]
+    }
+    return providers.exec { commandLine 'git', 'rev-parse', 'HEAD' }.standardOutput.asText.get().trim()
+}
+
+def sha256 = { byte[] data ->
+    java.security.MessageDigest.getInstance('SHA-256').digest(data).encodeHex().toString()
+}
+
+tasks.register('generateSourceInfo') {
+    inputs.files(distributionSources)
+    inputs.property('sourceRevision', sourceRevision)
+    outputs.file(sourceInfoFile)
+    doLast {
+        def root = layout.projectDirectory.asFile.toPath()
+        def entries = distributionSources.files.collect { file ->
+            [path: root.relativize(file.toPath()).toString().replace('\\', '/'), hash: sha256(file.bytes)]
+        }.sort { it.path }
+        def manifest = entries.collect { "${it.hash}  ${it.path}" }.join('\n') + '\n'
+        def info = """Spice of Life: Apple Pie Edition - Unofficial NeoForge Port
+Version: ${project.version}
+Base Git revision (may include local changes): ${sourceRevision.get()}
+Source snapshot SHA-256 (manifest below): ${sha256(manifest.getBytes('UTF-8'))}
+Source repository: https://github.com/hongjianjian02/Spice-of-Life-Apple-Pie
+Corresponding source archive: ${base.archivesName.get()}-${project.version}-sources.zip
+The manifest, not the Git revision alone, identifies the exact packaged source inputs.
+
+SHA-256  source path
+${manifest}"""
+        def output = sourceInfoFile.get().asFile
+        output.parentFile.mkdirs()
+        output.setText(info, 'UTF-8')
+    }
+}
+
+tasks.register('sourceArchive', Zip) {
+    group = 'distribution'
+    description = 'Packages complete corresponding source and build scripts (not just Java sources).'
+    dependsOn tasks.named('generateSourceInfo')
+    archiveClassifier = 'sources'
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    from(distributionSources)
+    from(sourceInfoFile)
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.register('verifyLicenseDistribution') {
+    group = 'verification'
+    description = 'Checks notices, licenses and exact source matching in the built archives.'
+    dependsOn tasks.named('jar'), tasks.named('sourceArchive')
+    doLast {
+        def required = ['LICENSE.txt', 'NOTICE.txt', 'THIRD_PARTY_NOTICES.md', 'MODIFICATIONS.md',
+                        'RELEASING.md', 'licenses/Cyclic-MIT.txt', 'licenses/Gradle-Wrapper-Apache-2.0.txt', 'SOURCE_INFO.txt']
+        def binary = new java.util.zip.ZipFile(tasks.named('jar').get().archiveFile.get().asFile)
+        def sources = new java.util.zip.ZipFile(tasks.named('sourceArchive').get().archiveFile.get().asFile)
+        try {
+            required.each { path ->
+                [binary, sources].each { archive ->
+                    if (archive.getEntry(path) == null) throw new GradleException("Missing distribution notice: ${path}")
+                }
+            }
+            def bytes = { archive, path -> archive.getInputStream(archive.getEntry(path)).bytes }
+            if (!java.util.Arrays.equals(bytes(binary, 'SOURCE_INFO.txt'), bytes(sources, 'SOURCE_INFO.txt'))) {
+                throw new GradleException('Binary and source snapshot information differ')
+            }
+            required.findAll { it != 'SOURCE_INFO.txt' }.each { path ->
+                if (!java.util.Arrays.equals(bytes(binary, path), file(path).bytes) ||
+                    !java.util.Arrays.equals(bytes(sources, path), file(path).bytes)) {
+                    throw new GradleException("Distribution notice was not preserved verbatim: ${path}")
+                }
+            }
+            def root = layout.projectDirectory.asFile.toPath()
+            distributionSources.files.each { input ->
+                def path = root.relativize(input.toPath()).toString().replace('\\', '/')
+                if (sources.getEntry(path) == null || !java.util.Arrays.equals(bytes(sources, path), input.bytes)) {
+                    throw new GradleException("Incomplete / mismatched corresponding source: ${path}")
+                }
+            }
+            logger.lifecycle('License distribution and matching complete source archive verified.')
+        } finally {
+            binary.close()
+            sources.close()
+        }
+    }
+}
+
+tasks.register('releaseBundle', Zip) {
+    group = 'distribution'
+    description = 'Packages the binary, matching full source and license notices for redistribution.'
+    dependsOn tasks.named('build'), tasks.named('verifyLicenseDistribution')
+    archiveClassifier = 'release'
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+    from(tasks.named('jar').flatMap { it.archiveFile })
+    from(tasks.named('sourceArchive').flatMap { it.archiveFile })
+    from(layout.projectDirectory) {
+        include 'LICENSE.txt', 'NOTICE.txt', 'THIRD_PARTY_NOTICES.md', 'MODIFICATIONS.md', 'RELEASING.md', 'licenses/**'
+    }
+    from(sourceInfoFile)
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+tasks.named('check').configure { dependsOn tasks.named('verifyLicenseDistribution') }
+
 publishing {
     publications {
-        mavenJava(MavenPublication) { from components.java }
+        mavenJava(MavenPublication) {
+            from components.java
+            artifact(tasks.named('sourceArchive'))
+            pom {
+                name = 'Spice of Life: Apple Pie Edition - Unofficial NeoForge Port'
+                url = 'https://github.com/hongjianjian02/Spice-of-Life-Apple-Pie'
+                licenses {
+                    license {
+                        name = 'GNU Lesser General Public License, version 2.1'
+                        url = 'https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html'
+                        distribution = 'repo'
+                    }
+                }
+                scm { url = 'https://github.com/hongjianjian02/Spice-of-Life-Apple-Pie' }
+            }
+        }
     }
     repositories { maven { url = layout.projectDirectory.dir('mcmodsrepo') } }
 }

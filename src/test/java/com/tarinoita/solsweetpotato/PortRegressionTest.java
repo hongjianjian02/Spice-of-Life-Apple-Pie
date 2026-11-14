@@ -1,3 +1,8 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato;
 
 import com.tarinoita.solsweetpotato.item.SOLSweetPotatoItems;
@@ -33,6 +38,16 @@ class PortRegressionTest {
         ConfigHandler.complexityMap = new HashMap<>();
         ConfigHandler.complexityMap.put(new FoodInstance(Items.APPLE), 2.0);
         ConfigHandler.complexityMap.put(new FoodInstance(Items.BREAD), 3.0);
+    }
+    @Test void distributedLicenseNoticesAreAvailable() throws Exception {
+        for (String path : List.of("LICENSE.txt", "NOTICE.txt", "THIRD_PARTY_NOTICES.md",
+                "MODIFICATIONS.md", "RELEASING.md", "SOURCE_INFO.txt",
+                "licenses/Cyclic-MIT.txt", "licenses/Gradle-Wrapper-Apache-2.0.txt")) {
+            try (var stream = getClass().getClassLoader().getResourceAsStream(path)) {
+                assertNotNull(stream, "Missing distribution notice: " + path);
+                assertTrue(stream.readAllBytes().length > 0, path);
+            }
+        }
     }
     @Test void attachmentPersistenceRoundTrips() {
         class TestHolder extends net.neoforged.neoforge.attachment.AttachmentHolder {

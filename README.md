@@ -1,8 +1,17 @@
-## Minecraft 1.21.1 NeoForge port
+<!-- Modified 2026-11-15 by hongjianjian02: unofficial NeoForge port and distribution notices. -->
+## Unofficial Minecraft 1.21.1 NeoForge port
+
+**This is an unofficial fork maintained by hongjianjian02, not an official upstream release.**
+Upstream: [txnimc/Spice-of-Life-Apple-Pie](https://github.com/txnimc/Spice-of-Life-Apple-Pie).
+Original authors/contributors include tarinoita, Vice, Kevun1 and the Carrot Edition team.
+The port retains the upstream GNU LGPL 2.1 license; see [LICENSE.txt](LICENSE.txt),
+[NOTICE.txt](NOTICE.txt) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
 This checkout now targets **Minecraft 1.21.1**, **NeoForge 21.1.265+ (21.1.x)** and **Java 21**.
 Build with `./gradlew build` (Windows: `gradlew.bat build`). Install the JAR from `build/libs/`
-on both client and server. See [PORTING_1.21.1.md](PORTING_1.21.1.md) for migration notes,
+on both client and server. To redistribute, use `./gradlew releaseBundle`: it includes
+the binary, matching complete source ZIP and notices. See [RELEASING.md](RELEASING.md).
+See [PORTING_1.21.1.md](PORTING_1.21.1.md) for migration notes,
 verification coverage and limitations. The original upstream description below is historical.
 
 <p align="center">
