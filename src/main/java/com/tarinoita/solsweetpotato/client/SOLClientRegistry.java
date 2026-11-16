@@ -1,3 +1,4 @@
+// Modified 2026-11-15 by the hongjianjian02 fork: Simplified Chinese localization fixes.
 /*
  * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
  * NeoForge port and associated regression tests / distribution notices.
@@ -27,8 +28,8 @@ public class SOLClientRegistry {
 
     @SubscribeEvent
     public static void registerKeybinds(RegisterKeyMappingsEvent event) {
-        OPEN_FOOD_BOOK = new KeyMapping(Localization.localized("key", "open_food_book"),
-                InputConstants.UNKNOWN.getValue(), Localization.localized("key", "category"));
+        OPEN_FOOD_BOOK = new KeyMapping(Localization.keyString("key", "open_food_book"),
+                InputConstants.UNKNOWN.getValue(), Localization.keyString("key", "category"));
         event.register(OPEN_FOOD_BOOK);
     }
 }

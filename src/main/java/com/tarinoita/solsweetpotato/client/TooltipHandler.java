@@ -49,7 +49,7 @@ public final class TooltipHandler {
 		} else {
 			if (hasBeenEaten) {
 				int lastEaten = foodList.getLastEaten(food);
-				double contribution = FoodList.calculateDiversityContribution(new FoodInstance(food), lastEaten);
+				double contribution = foodList.getDiversityContribution(food);
 
 				addDiversityInfoTooltips(tooltip, contribution, lastEaten);
 			}

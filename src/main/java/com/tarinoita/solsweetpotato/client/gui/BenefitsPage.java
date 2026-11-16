@@ -1,3 +1,4 @@
+// Modified 2026-11-15 by the hongjianjian02 fork: Simplified Chinese localization fixes.
 /*
  * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
  * NeoForge port and associated regression tests / distribution notices.
@@ -89,11 +90,11 @@ public class BenefitsPage extends Page {
             attribute = BuiltInRegistries.ATTRIBUTE.get(ResourceLocation.parse(name));
         }
         catch (ResourceLocationException e) {
-            return "Invalid: " + name;
+            return localized("gui", "food_book.benefits.invalid", name);
         }
 
         if (attribute == null) {
-            return "Invalid: " + name;
+            return localized("gui", "food_book.benefits.invalid", name);
         }
 
         return I18n.get(attribute.getDescriptionId());
@@ -105,11 +106,11 @@ public class BenefitsPage extends Page {
             effect = BuiltInRegistries.MOB_EFFECT.get(ResourceLocation.parse(name));
         }
         catch (ResourceLocationException e) {
-            return "Invalid: " + name;
+            return localized("gui", "food_book.benefits.invalid", name);
         }
 
         if (effect == null) {
-            return "Invalid: " + name;
+            return localized("gui", "food_book.benefits.invalid", name);
         }
 
         return effect.getDisplayName().getString();

@@ -95,6 +95,10 @@ public final class SOLSweetPotatoConfig
 
 	public static boolean shouldForbiddenCount() { return SERVER.shouldForbiddenCount.get(); }
 
+	public static boolean keepHighestDiversityFoods() {
+		return SERVER.keepHighestDiversityFoods.get();
+	}
+
 	public static Integer size() {
 		return SERVER.queueSize.get();
 	}
@@ -124,6 +128,7 @@ public final class SOLSweetPotatoConfig
 		public final ConfigValue<List<? extends String>> whitelist;
 
 		public final IntValue queueSize;
+		public final BooleanValue keepHighestDiversityFoods;
 
 		public final BooleanValue shouldResetOnDeath;
 		public final BooleanValue limitProgressionToSurvival;
@@ -243,6 +248,12 @@ public final class SOLSweetPotatoConfig
 							+" make sure you change endDecay (below) to match queueSize, or else nothing will change!!!\n"
 							+"\n")
 					.defineInRange("queueSize", 32, 1, 1000);
+
+			keepHighestDiversityFoods = builder
+					.translation(localizationPath("keep_highest_diversity_foods"))
+					.comment("Keep all eligible foods eaten in persistent history and count only the highest-complexity queueSize distinct foods.\n"
+							+ "Lower-scoring or repeated foods do not displace higher-scoring foods. Time decay is ignored in this mode.")
+					.define("keepHighestDiversityFoods", false);
 
 			builder.pop();
 			builder.push("Advanced");

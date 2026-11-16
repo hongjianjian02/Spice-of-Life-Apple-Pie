@@ -1,3 +1,4 @@
+// Modified 2026-11-15 by the hongjianjian02 fork: Simplified Chinese localization fixes.
 /*
  * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
  * NeoForge port and associated regression tests / distribution notices.
@@ -27,7 +28,8 @@ final class PageFlipButton extends Button {
 	private final Pageable pageable;
 
 	PageFlipButton(int x, int y, Direction direction, Pageable pageable) {
-		super(x, y, 23, 13, Component.literal(""), (button) -> ((PageFlipButton) button).changePage(), DEFAULT_NARRATION);
+		super(x, y, 23, 13, Component.translatable(direction == Direction.FORWARD
+				? "gui.solapplepie.food_book.next_page" : "gui.solapplepie.food_book.previous_page"), (button) -> ((PageFlipButton) button).changePage(), DEFAULT_NARRATION);
 
 		this.direction = direction;
 		this.pageable = pageable;

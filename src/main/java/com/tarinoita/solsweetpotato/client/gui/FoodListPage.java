@@ -1,5 +1,7 @@
 package com.tarinoita.solsweetpotato.client.gui;
 
+import com.tarinoita.solsweetpotato.SOLSweetPotatoConfig;
+
 import com.tarinoita.solsweetpotato.client.gui.elements.UIFoodQueueItem;
 import com.tarinoita.solsweetpotato.client.gui.elements.UIItemStack;
 import com.tarinoita.solsweetpotato.tracking.FoodInstance;
@@ -18,7 +20,8 @@ public final class FoodListPage extends ItemListPage {
     private FoodListPage(Rectangle frame, String header, List<ItemStack> items, Map<FoodInstance, Integer> foodMap) {
         super(frame, header, items);
 
-        setHeaderTooltip(localized("gui", "food_book.queue.food_queue_tooltip"));
+        setHeaderTooltip(localized("gui", SOLSweetPotatoConfig.keepHighestDiversityFoods()
+				? "food_book.queue.highest_food_queue_tooltip" : "food_book.queue.food_queue_tooltip"));
 
         this.foodMap = foodMap;
 

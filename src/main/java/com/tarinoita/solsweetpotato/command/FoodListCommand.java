@@ -1,3 +1,4 @@
+// Modified 2026-11-15 by the hongjianjian02 fork: Simplified Chinese localization fixes.
 /*
  * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
  * NeoForge port and associated regression tests / distribution notices.
@@ -25,6 +26,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 
+import java.util.Locale;
 import java.util.Objects;
 
 import static net.minecraft.commands.Commands.argument;
@@ -77,7 +79,7 @@ public final class FoodListCommand {
 			throw new SimpleCommandExceptionType(localizedComponent("no_permissions")).create();
 
 		double diversity = FoodList.get(target).foodDiversity();
-		MutableComponent feedback = localizedComponent("diversity_feedback", diversity);
+		MutableComponent feedback = localizedComponent("diversity_feedback", String.format(Locale.ROOT, "%.2f", diversity));
 		sendFeedback(context.getSource(), feedback);
 		return Command.SINGLE_SUCCESS;
 	}

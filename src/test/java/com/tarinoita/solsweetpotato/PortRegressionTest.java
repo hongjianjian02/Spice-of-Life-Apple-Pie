@@ -29,6 +29,7 @@ class PortRegressionTest {
         net.neoforged.fml.config.ConfigTracker.INSTANCE.loadDefaultServerConfigs();
     }
     @BeforeEach void defaults() {
+        SOLSweetPotatoConfig.SERVER.keepHighestDiversityFoods.set(false);
         SOLSweetPotatoConfig.SERVER.queueSize.set(10);
         SOLSweetPotatoConfig.SERVER.startDecay.set(2);
         SOLSweetPotatoConfig.SERVER.endDecay.set(8);

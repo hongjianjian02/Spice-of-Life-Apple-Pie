@@ -1,3 +1,4 @@
+// Modified 2026-11-15 by the hongjianjian02 fork: Simplified Chinese localization fixes.
 /*
  * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
  * NeoForge port and associated regression tests / distribution notices.
@@ -61,7 +62,7 @@ public final class FoodBookScreen extends Screen implements PageFlipButton.Pagea
 	}
 
 	public FoodBookScreen(Player player) {
-		super(Component.literal(""));
+		super(Component.translatable("item.solapplepie.food_book"));
 		this.player = player;
 	}
 
@@ -110,9 +111,9 @@ public final class FoodBookScreen extends Screen implements PageFlipButton.Pagea
 		pages.add(new DiversityPage(foodDiversity, foodEaten, background.frame));
 
 		List<Map.Entry<FoodInstance, Integer>> dataList = new ArrayList<>(foodData);
-		dataList.sort(Map.Entry.comparingByValue());
+		if (!SOLSweetPotatoConfig.keepHighestDiversityFoods()) dataList.sort(Map.Entry.comparingByValue());
 		List<Item> foods = dataList.stream().map(Map.Entry::getKey).map(FoodInstance::getItem).collect(Collectors.toList());
-		addPages("food_queue_label", foods);
+		addPages(SOLSweetPotatoConfig.keepHighestDiversityFoods() ? "highest_food_queue_label" : "food_queue_label", foods);
 
 		Pair<List<BenefitInfo>, List<BenefitInfo>> benefits = BenefitsHandler.getBenefitInfo(foodDiversity, foodEaten);
 		List<BenefitInfo> activeBenefits = benefits.getKey().stream().filter(bi -> !bi.detriment).toList();

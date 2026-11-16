@@ -107,6 +107,15 @@ public final class FoodList implements FoodCapability {
 			foodsEaten++;
 		}
 
+		if (SOLSweetPotatoConfig.keepHighestDiversityFoods()) {
+			// Keep distinct food history so later complexity edits can recompute the best foods.
+			foodMap.replaceAll((instance, age) -> Math.min(MAX_FOODS_EATEN, age + 1));
+			if (SOLSweetPotatoConfig.shouldCount(food)) {
+				foodMap.put(new FoodInstance(food), 0);
+			}
+			return;
+		}
+
 		ArrayList<FoodInstance> toRemove = new ArrayList<>();
 
 		for (Map.Entry<FoodInstance, Integer> entry : foodMap.entrySet()) {
@@ -141,6 +150,11 @@ public final class FoodList implements FoodCapability {
 	public double simulateFoodAdd(Item food) {
 		if (!SOLSweetPotatoConfig.shouldCount(food) && !SOLSweetPotatoConfig.shouldForbiddenCount()) {
 			return 0.0;
+		}
+		if (SOLSweetPotatoConfig.keepHighestDiversityFoods()) {
+			Map<FoodInstance, Integer> simulated = new HashMap<>(uniqueFoods);
+			if (SOLSweetPotatoConfig.shouldCount(food)) simulated.put(new FoodInstance(food), 0);
+			return foodDiversity(simulated.entrySet()) - foodDiversity();
 		}
 		double change = 0.0;
 
@@ -178,7 +192,9 @@ public final class FoodList implements FoodCapability {
 	public static double foodDiversity(Set<Map.Entry<FoodInstance, Integer>> foodData) {
 		double diversity = 0;
 
-		for (Map.Entry<FoodInstance, Integer> entry : foodData) {
+		Set<Map.Entry<FoodInstance, Integer>> contributingFoods = SOLSweetPotatoConfig.keepHighestDiversityFoods()
+				? highestDiversityFoods(foodData) : foodData;
+		for (Map.Entry<FoodInstance, Integer> entry : contributingFoods) {
 			FoodInstance food = entry.getKey();
 			Integer lastEaten = entry.getValue();
 
@@ -189,6 +205,9 @@ public final class FoodList implements FoodCapability {
 	}
 
 	public static double calculateDiversityContribution(FoodInstance food, int lastEaten) {
+		if (SOLSweetPotatoConfig.keepHighestDiversityFoods()) {
+			return SOLSweetPotatoConfig.shouldCount(food.getItem()) ? getComplexity(food) : 0.0;
+		}
 		return calculateTimePenalty(lastEaten) * getComplexity(food);
 	}
 
@@ -239,8 +258,32 @@ public final class FoodList implements FoodCapability {
 		return SOLSweetPotatoConfig.defaultContribution();
 	}
 
+	private static Set<Map.Entry<FoodInstance, Integer>> highestDiversityFoods(
+			Set<Map.Entry<FoodInstance, Integer>> foodData) {
+		List<Map.Entry<FoodInstance, Integer>> sorted = new ArrayList<>(foodData);
+		sorted.removeIf(entry -> !SOLSweetPotatoConfig.shouldCount(entry.getKey().getItem()));
+		sorted.sort(Comparator.<Map.Entry<FoodInstance, Integer>>comparingDouble(
+				entry -> getComplexity(entry.getKey())).reversed()
+				.thenComparing(entry -> entry.getKey().toString()));
+		Set<Map.Entry<FoodInstance, Integer>> highest = new LinkedHashSet<>();
+		for (int i = 0; i < Math.min(SOLSweetPotatoConfig.size(), sorted.size()); i++) {
+			highest.add(new AbstractMap.SimpleImmutableEntry<>(sorted.get(i)));
+		}
+		return highest;
+	}
+
+	/** Only contributing foods are sent to book callers; persistence still stores the full history. */
 	public Set<Map.Entry<FoodInstance, Integer>> getData() {
-		return uniqueFoods.entrySet();
+		return SOLSweetPotatoConfig.keepHighestDiversityFoods()
+				? highestDiversityFoods(uniqueFoods.entrySet()) : uniqueFoods.entrySet();
+	}
+
+	public double getDiversityContribution(Item food) {
+		FoodInstance instance = new FoodInstance(food);
+		if (!uniqueFoods.containsKey(instance)) return 0.0;
+		if (SOLSweetPotatoConfig.keepHighestDiversityFoods()
+				&& getData().stream().noneMatch(entry -> entry.getKey().equals(instance))) return 0.0;
+		return calculateDiversityContribution(instance, uniqueFoods.get(instance));
 	}
 
 	public int getLastEaten(Item food) {

@@ -12,6 +12,31 @@ Maintainer: the hongjianjian02 fork. All dates use YYYY-MM-DD.
   their path/date notice is recorded below instead of changing the binary image.
 - Gradle wrapper replacement retains its independent Apache-2.0 notices.
 
+## Simplified Chinese localization — 2026-11-15
+
+Maintainer: the hongjianjian02 fork. Added `zh_cn.json` and completed `en_us.json`
+with matching translations for items, containers, the food book, tooltips, keybinds,
+commands and all 16 configuration options (including tooltip explanations and categories).
+English remains supported. Configuration option names/IDs and existing saves are unchanged.
+
+- `src/main/resources/assets/solapplepie/lang/{en_us,zh_cn}.json`: 76 matching
+  translation keys per locale; added dated `_port_notice` metadata.
+- `src/main/java/com/tarinoita/solsweetpotato/client/SOLClientRegistry.java`:
+  register keybind translation keys rather than text fixed to the startup language.
+- `src/main/java/com/tarinoita/solsweetpotato/client/gui/BenefitsPage.java`:
+  translate invalid attribute/effect labels.
+- `src/main/java/com/tarinoita/solsweetpotato/client/gui/FoodBookScreen.java` and
+  `PageFlipButton.java`: translate the screen title and narrated page buttons.
+- `src/main/java/com/tarinoita/solsweetpotato/command/FoodListCommand.java`:
+  format diversity to two decimal places before passing it to the translated component.
+- `src/test/java/com/tarinoita/solsweetpotato/LocalizationRegressionTest.java`:
+  validate language parity, placeholders, configuration coverage and localized components.
+- `PORTING_1.21.1.md`: document language selection and localization scope.
+
+All original licenses and attribution are retained; this localization does not
+change the mod's license. This section supplements, rather than replaces, the
+historical port inventory below.
+
 ## Port file inventory relative to upstream/1.19
 
 | Path | Date | Change |
@@ -97,3 +122,7 @@ Maintainer: the hongjianjian02 fork. All dates use YYYY-MM-DD.
 `licenses/` were added on 2026-11-15. `SOURCE_INFO.txt` is generated during the
 build and contains the exact packaged source-input paths and SHA-256 values;
 Git revision alone is not sufficient to identify uncommitted modifications.
+
+## 2026-11-15: optional highest-diversity food history
+
+Added `Miscellaneous.keepHighestDiversityFoods` (default false). In this mode, FoodList retains distinct eligible foods in its existing serialized history and counts only the highest-complexity `queueSize` foods without time decay. Added matching simulations, per-food contribution, ordered food-book view and English/Chinese labels. Existing recent-meal mode remains the default; existing recorded meals migrate without changing the NBT schema. Foods already expired before this update cannot be reconstructed. Regression tests cover ranking, repeated/lower meals, persistence, score edits, blacklist and normal mode. Modified FoodList.java, SOLSweetPotatoConfig.java, TooltipHandler.java, FoodBookScreen.java, FoodListPage.java, en_us.json, zh_cn.json and PortRegressionTest.java; added HighestDiversityRegressionTest.java.
