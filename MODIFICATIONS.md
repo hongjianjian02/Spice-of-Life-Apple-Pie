@@ -126,3 +126,28 @@ Git revision alone is not sufficient to identify uncommitted modifications.
 ## 2026-11-15: optional highest-diversity food history
 
 Added `Miscellaneous.keepHighestDiversityFoods` (default false). In this mode, FoodList retains distinct eligible foods in its existing serialized history and counts only the highest-complexity `queueSize` foods without time decay. Added matching simulations, per-food contribution, ordered food-book view and English/Chinese labels. Existing recent-meal mode remains the default; existing recorded meals migrate without changing the NBT schema. Foods already expired before this update cannot be reconstructed. Regression tests cover ranking, repeated/lower meals, persistence, score edits, blacklist and normal mode. Modified FoodList.java, SOLSweetPotatoConfig.java, TooltipHandler.java, FoodBookScreen.java, FoodListPage.java, en_us.json, zh_cn.json and PortRegressionTest.java; added HighestDiversityRegressionTest.java.
+
+## Repeated potion-effect reward tiers — 2026-11-17
+
+- `tracking/benefits/EffectBenefitsCapability.java`: remove only the matching reward
+  definition, so a locked Resistance IV tier no longer deletes unlocked Resistance III
+  (or a later regeneration tier an earlier one). Keep the strongest unlocked effect
+  amplifier when multiple active thresholds grant the same effect.
+- `src/test/java/com/tarinoita/solsweetpotato/EffectBenefitsRegressionTest.java`:
+  regressions for locked higher tiers, duplicate regeneration, upgrades/downgrades,
+  configuration order and removal after NBT persistence. Existing NBT format retained.
+
+## Lunch-container empty-slot synchronization — 2026-11-18
+
+- `item/foodcontainer/FoodContainerCapabilityProvider.java`: accept empty stacks
+  in handler validation so initial container-content packets, clearing slots and
+  removing the last food do not throw `Invalid stack 0 minecraft:air`. Keep
+  non-food and nested-container restrictions unchanged.
+- `item/foodcontainer/FoodContainerItem.java`: clear the slot before routing
+  bowls/bottles to player inventory, rather than first writing a forbidden non-food
+  remainder into the food-only handler. Food remainders stay in the lunch container.
+- `src/test/java/com/tarinoita/solsweetpotato/FoodContainerRegressionTest.java`:
+  reproduce vanilla `initializeContents` and slot-clearing paths for all three lunch
+  containers; verify persistence, food-only restrictions and index validation.
+- `PORTING_1.21.1.md`: document the issue and replacement instructions. No item
+  registry IDs, data-component schema, language resources or licenses were changed.

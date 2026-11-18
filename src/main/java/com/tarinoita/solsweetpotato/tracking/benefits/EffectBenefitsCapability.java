@@ -1,6 +1,7 @@
 /*
  * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
  * NeoForge port and associated regression tests / distribution notices.
+ * Modified 2026-11-17: preserve unlocked effect tiers and select the strongest active level.
  * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
  */
 package com.tarinoita.solsweetpotato.tracking.benefits;
@@ -30,12 +31,18 @@ public class EffectBenefitsCapability implements Iterable<EffectBenefit> {
     }
 
     public void addEffectBenefitUnique(EffectBenefit b) {
+        // Multiple unlocked thresholds may grant the same effect; retain its strongest level.
+        if (effectBenefits.stream().anyMatch(other -> other.getName().equals(b.getName())
+                && other.getValue() > b.getValue())) {
+            return;
+        }
         effectBenefits.removeIf(other -> other.getName().equals(b.getName()));
         addEffectBenefit(b);
     }
 
     public void removeEffectBenefit(EffectBenefit b) {
-        effectBenefits.removeIf(other -> other.getName().equals(b.getName()));
+        // A locked higher threshold must not remove an unlocked benefit with the same effect.
+        effectBenefits.remove(b);
     }
 
     public void clear() {

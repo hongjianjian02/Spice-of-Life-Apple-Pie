@@ -1,6 +1,7 @@
 /*
  * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
  * NeoForge port and associated regression tests / distribution notices.
+ * Modified 2026-11-18: route non-food consumption remainders outside the food-only inventory.
  * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
  */
 package com.tarinoita.solsweetpotato.item.foodcontainer;
@@ -103,9 +104,11 @@ public class FoodContainerItem extends Item {
         ItemStack foodCopy = bestFood.copy();
         if (bestFood.getFoodProperties(entity) != null && !bestFood.isEmpty()) {
             ItemStack result = bestFood.finishUsingItem(world, entity);
-            handler.setStackInSlot(bestFoodSlot, result);
-            // put bowls/bottles etc. into player inventory
-            if (result.getFoodProperties(entity) == null) {
+            // Do not temporarily write a bowl/bottle into the food-only handler: it validates
+            // every write. Empty results clear the slot; non-food remainders go to the player.
+            if (result.isEmpty() || result.getFoodProperties(entity) != null) {
+                handler.setStackInSlot(bestFoodSlot, result);
+            } else {
                 handler.setStackInSlot(bestFoodSlot, ItemStack.EMPTY);
                 Player playerEntity = (Player) entity;
 
