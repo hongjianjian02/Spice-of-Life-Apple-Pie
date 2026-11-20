@@ -2,6 +2,7 @@
 /*
  * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
  * NeoForge port and associated regression tests / distribution notices.
+ * Modified 2026-11-20: build all food book pages from one history summary.
  * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
  */
 package com.tarinoita.solsweetpotato.client.gui;
@@ -9,7 +10,6 @@ package com.tarinoita.solsweetpotato.client.gui;
 import com.tarinoita.solsweetpotato.SOLSweetPotato;
 import com.tarinoita.solsweetpotato.SOLSweetPotatoConfig;
 import com.tarinoita.solsweetpotato.client.gui.elements.*;
-import com.tarinoita.solsweetpotato.tracking.FoodInstance;
 import com.tarinoita.solsweetpotato.tracking.FoodList;
 import com.tarinoita.solsweetpotato.tracking.benefits.BenefitInfo;
 import com.tarinoita.solsweetpotato.tracking.benefits.BenefitsHandler;
@@ -20,15 +20,12 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 
 import java.awt.*;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static com.tarinoita.solsweetpotato.lib.Localization.localized;
 
@@ -51,8 +48,7 @@ public final class FoodBookScreen extends Screen implements PageFlipButton.Pagea
 	private PageFlipButton nextPageButton;
 	private PageFlipButton prevPageButton;
 
-	private Player player;
-	private Set<Map.Entry<FoodInstance, Integer>> foodData;
+	private final Player player;
 
 	private final List<Page> pages = new ArrayList<>();
 	private int currentPageNumber = 0;
@@ -69,8 +65,6 @@ public final class FoodBookScreen extends Screen implements PageFlipButton.Pagea
 	@Override
 	public void init() {
 		super.init();
-
-		foodData = FoodList.get(player).getData();
 
 		background = new UIImage(bookImage);
 		background.setCenterX(width / 2);
@@ -106,16 +100,11 @@ public final class FoodBookScreen extends Screen implements PageFlipButton.Pagea
 	private void initPages() {
 		pages.clear();
 
-		double foodDiversity = FoodList.foodDiversity(foodData);
-		int foodEaten = FoodList.get(player).getFoodsEaten();
-		pages.add(new DiversityPage(foodDiversity, foodEaten, background.frame));
+		var history = FoodList.get(player).summarizeHistory();
+		pages.add(new DiversityPage(history.diversity(), history.mealsEaten(), background.frame));
+		pages.addAll(FoodListPage.fromHistory(background.frame, history.foods()));
 
-		List<Map.Entry<FoodInstance, Integer>> dataList = new ArrayList<>(foodData);
-		if (!SOLSweetPotatoConfig.keepHighestDiversityFoods()) dataList.sort(Map.Entry.comparingByValue());
-		List<Item> foods = dataList.stream().map(Map.Entry::getKey).map(FoodInstance::getItem).collect(Collectors.toList());
-		addPages(SOLSweetPotatoConfig.keepHighestDiversityFoods() ? "highest_food_queue_label" : "food_queue_label", foods);
-
-		Pair<List<BenefitInfo>, List<BenefitInfo>> benefits = BenefitsHandler.getBenefitInfo(foodDiversity, foodEaten);
+		Pair<List<BenefitInfo>, List<BenefitInfo>> benefits = BenefitsHandler.getBenefitInfo(history.diversity(), history.mealsEaten());
 		List<BenefitInfo> activeBenefits = benefits.getKey().stream().filter(bi -> !bi.detriment).toList();
 		List<BenefitInfo> inactiveDetriments = benefits.getKey().stream().filter(bi -> bi.detriment).toList();
 		List<BenefitInfo> inactiveBenefits = benefits.getValue().stream().filter(bi -> !bi.detriment).toList();
@@ -134,17 +123,6 @@ public final class FoodBookScreen extends Screen implements PageFlipButton.Pagea
 		String header = localized("gui", "food_book." + headerLocalizationPath);
 
 		pages.addAll(BenefitsPage.pages(background.frame, header, benefitInfoList, activeColor));
-	}
-
-	private void addPages(String headerLocalizationPath, List<Item> items) {
-		String header = localized("gui", "food_book." + headerLocalizationPath, items.size());
-		List<ItemStack> stacks = items.stream().map(ItemStack::new).collect(Collectors.toList());
-		Map<FoodInstance, Integer> foodMap = new HashMap<>();
-		for (Map.Entry<FoodInstance, Integer> entry : foodData) {
-			foodMap.put(entry.getKey(), entry.getValue());
-		}
-
-		pages.addAll(FoodListPage.pages(background.frame, header, stacks, foodMap));
 	}
 
 	@Override

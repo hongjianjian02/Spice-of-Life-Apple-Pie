@@ -1,8 +1,10 @@
 /* Added 2026-11-15 by the hongjianjian02 fork; see LICENSE.txt. */
+/* Modified 2026-11-20: characterize meal previews and history views across both modes. */
 package com.tarinoita.solsweetpotato;
 
 import com.tarinoita.solsweetpotato.tracking.FoodInstance;
 import com.tarinoita.solsweetpotato.tracking.FoodList;
+import com.tarinoita.solsweetpotato.tracking.FoodList.EatenFood;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.item.Item;
@@ -11,6 +13,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.util.HashMap;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
@@ -104,6 +108,84 @@ class HighestDiversityRegressionTest {
         assertFalse(list.hasEaten(Items.APPLE));
         assertEquals(2.0, list.foodDiversity());
     }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void predictionsMatchRecordingAcrossRepeatsExpiryAndExcludedMeals(boolean keepHighest) {
+        SOLSweetPotatoConfig.SERVER.keepHighestDiversityFoods.set(keepHighest);
+        SOLSweetPotatoConfig.SERVER.queueSize.set(2);
+        SOLSweetPotatoConfig.SERVER.endDecay.set(2);
+        SOLSweetPotatoConfig.SERVER.blacklist.set(List.of("minecraft:carrot"));
+        var history = new FoodList();
+        history.addFood(Items.APPLE);
+        history.addFood(Items.BREAD);
+
+        var beforeExcludedMeal = history.serializeNBT();
+        predictThenEat(history, Items.CARROT);
+        assertEquals(beforeExcludedMeal, history.serializeNBT());
+
+        SOLSweetPotatoConfig.SERVER.shouldForbiddenCount.set(true);
+        predictThenEat(history, Items.CARROT);
+        assertEquals(3, history.getFoodsEaten());
+        assertFalse(history.hasEaten(Items.CARROT));
+        assertEquals(1, history.getLastEaten(Items.BREAD));
+        assertEquals(keepHighest ? 2 : -1, history.getLastEaten(Items.APPLE));
+        predictThenEat(history, Items.BREAD);
+        assertEquals(0, history.getLastEaten(Items.BREAD));
+        predictThenEat(history, Items.GOLDEN_APPLE);
+        assertEquals(5, history.getFoodsEaten());
+    }
+
+    @Test void aFormerlyAllowedMealAgesLikeOtherExcludedMeals() {
+        SOLSweetPotatoConfig.SERVER.keepHighestDiversityFoods.set(false);
+        var history = new FoodList();
+        history.addFood(Items.BREAD);
+        SOLSweetPotatoConfig.SERVER.blacklist.set(List.of("minecraft:bread"));
+        SOLSweetPotatoConfig.SERVER.shouldForbiddenCount.set(true);
+        predictThenEat(history, Items.BREAD);
+        assertEquals(1, history.getLastEaten(Items.BREAD));
+        assertEquals(1.75, history.foodDiversity());
+    }
+
+    private static void predictThenEat(FoodList history, Item food) {
+        var saved = history.serializeNBT();
+        double before = history.foodDiversity();
+        double delta = history.simulateFoodAdd(food);
+        assertEquals(saved, history.serializeNBT(), "Preview must not change the saved attachment");
+        history.addFood(food);
+        assertEquals(history.foodDiversity() - before, delta, 1e-9, food.toString());
+    }
+
+    @Test void recentSummaryIsOrderedByAgeAndDetachedFromLaterMeals() {
+        SOLSweetPotatoConfig.SERVER.keepHighestDiversityFoods.set(false);
+        var history = new FoodList();
+        List.of(Items.BREAD, Items.APPLE, Items.CARROT, Items.APPLE).forEach(history::addFood);
+
+        var summary = history.summarizeHistory();
+        assertEquals(history.foodDiversity(), summary.diversity());
+        history.addFood(Items.BREAD);
+        assertEquals(4.875, summary.diversity());
+        assertEquals(4, summary.mealsEaten());
+        assertEquals(List.of(new EatenFood(Items.APPLE, 0), new EatenFood(Items.CARROT, 1),
+                new EatenFood(Items.BREAD, 3)), summary.foods());
+        assertThrows(UnsupportedOperationException.class, () -> summary.foods().clear());
+    }
+
+    @Test void highestSummaryUsesContributionThenRegistryIdAtCutoff() {
+        SOLSweetPotatoConfig.SERVER.queueSize.set(3);
+        ConfigHandler.complexityMap.put(new FoodInstance(Items.APPLE), 2.0);
+        ConfigHandler.complexityMap.put(new FoodInstance(Items.POTATO), 2.0);
+        var history = new FoodList();
+        List.of(Items.POTATO, Items.BREAD, Items.CARROT, Items.APPLE).forEach(history::addFood);
+
+        var summary = history.summarizeHistory();
+        assertEquals(List.of(new EatenFood(Items.CARROT, 1), new EatenFood(Items.APPLE, 0),
+                new EatenFood(Items.BREAD, 2)), summary.foods());
+        assertEquals(7.0, summary.diversity());
+        assertEquals(history.foodDiversity(), summary.diversity());
+        assertEquals(4, summary.mealsEaten());
+        assertTrue(history.hasEaten(Items.POTATO));
+    }
+
     @Test void existingRecentHistoryAndMealCountLoadWithoutReset() {
         SOLSweetPotatoConfig.SERVER.keepHighestDiversityFoods.set(false);
         FoodList recent = new FoodList(); recent.addFood(Items.APPLE); recent.addFood(Items.BREAD);

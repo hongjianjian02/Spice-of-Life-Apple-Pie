@@ -1,4 +1,5 @@
 // Modified 2026-11-15 by the hongjianjian02 fork for the unofficial NeoForge port.
+// Modified 2026-11-20 by the hongjianjian02 fork: name the unofficial distribution archives.
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -8,6 +9,8 @@ plugins {
 version = "${minecraft_version}-${mod_version}-neoforge"
 group = mod_group_id
 base { archivesName = mod_id }
+def distributionStem = "${mod_id} Unofficial-${mod_version}-${minecraft_version}-neoforge"
+def sourceArchiveName = "${distributionStem}-sources.zip"
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 neoForge {
@@ -53,7 +56,10 @@ processResources {
     dependsOn 'generateSourceInfo'
     from(layout.buildDirectory.dir('generated/distribution'))
 }
-jar { manifest { attributes 'Implementation-Version': project.version } }
+jar {
+    archiveFileName = "${distributionStem}.jar"
+    manifest { attributes 'Implementation-Version': project.version }
+}
 // Full corresponding source, including build scripts, wrapper, tests and notices.
 // Explicit inputs keep private runtime configs, saves, caches and credentials out.
 def distributionSources = fileTree(layout.projectDirectory) {
@@ -79,6 +85,7 @@ def sha256 = { byte[] data ->
 tasks.register('generateSourceInfo') {
     inputs.files(distributionSources)
     inputs.property('sourceRevision', sourceRevision)
+    inputs.property('sourceArchiveName', sourceArchiveName)
     outputs.file(sourceInfoFile)
     doLast {
         def root = layout.projectDirectory.asFile.toPath()
@@ -91,7 +98,7 @@ Version: ${project.version}
 Base Git revision (may include local changes): ${sourceRevision.get()}
 Source snapshot SHA-256 (manifest below): ${sha256(manifest.getBytes('UTF-8'))}
 Source repository: https://github.com/hongjianjian02/Spice-of-Life-Apple-Pie
-Corresponding source archive: ${base.archivesName.get()}-${project.version}-sources.zip
+Corresponding source archive: ${sourceArchiveName}
 The manifest, not the Git revision alone, identifies the exact packaged source inputs.
 
 SHA-256  source path
@@ -107,6 +114,7 @@ tasks.register('sourceArchive', Zip) {
     description = 'Packages complete corresponding source and build scripts (not just Java sources).'
     dependsOn tasks.named('generateSourceInfo')
     archiveClassifier = 'sources'
+    archiveFileName = sourceArchiveName
     destinationDirectory = layout.buildDirectory.dir('libs')
     from(distributionSources)
     from(sourceInfoFile)
@@ -159,6 +167,7 @@ tasks.register('releaseBundle', Zip) {
     description = 'Packages the binary, matching full source and license notices for redistribution.'
     dependsOn tasks.named('build'), tasks.named('verifyLicenseDistribution')
     archiveClassifier = 'release'
+    archiveFileName = "${distributionStem}-release.zip"
     destinationDirectory = layout.buildDirectory.dir('distributions')
     from(tasks.named('jar').flatMap { it.archiveFile })
     from(tasks.named('sourceArchive').flatMap { it.archiveFile })

@@ -1,4 +1,5 @@
 # Modified 2026-11-15 by hongjianjian02: distribute matching source and use explicit fork targets.
+# Modified 2026-11-20 by hongjianjian02: keep the original source archive name as its release asset label.
 name: Release Unofficial NeoForge Port
 
 on:
@@ -41,7 +42,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$RELEASE_TAG" build/libs/*.jar build/libs/*-sources.zip build/distributions/*-release.zip --clobber
+          SOURCE_FILE: ${{ steps.files.outputs.source }}
+        run: gh release upload "$RELEASE_TAG" build/libs/*.jar "$SOURCE_FILE#${SOURCE_FILE##*/}" build/distributions/*-release.zip --clobber
       - name: Resolve published source download
         id: source
         env:
@@ -53,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           gh release view "$RELEASE_TAG" --json assets > "$RUNNER_TEMP/release-assets.json"
-          source_url=$(jq -r --arg name "$SOURCE_NAME" '.assets[] | select(.name == $name) | .url' "$RUNNER_TEMP/release-assets.json")
+          source_url=$(jq -r --arg name "$SOURCE_NAME" '.assets[] | select(.label == $name or .name == $name) | .url' "$RUNNER_TEMP/release-assets.json")
           test -n "$source_url"
           echo "url=$source_url" >> "$GITHUB_OUTPUT"
       - name: Check optional CurseForge target

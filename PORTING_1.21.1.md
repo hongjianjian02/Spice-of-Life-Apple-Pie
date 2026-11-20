@@ -1,4 +1,5 @@
 <!-- Modified 2026-11-15 by hongjianjian02: port and distribution documentation. -->
+<!-- Modified 2026-11-20 by hongjianjian02: independent port version. -->
 # Minecraft 1.21.1 NeoForge 移植说明
 
 ## 目标与构建
@@ -9,7 +10,7 @@
 - MOD ID 保持 `solapplepie`，物品注册 ID 与原版相同。
 - Windows：设置 `JAVA_HOME` 为 JDK 21，然后执行 `gradlew.bat clean build`。
 - Linux/macOS：使用 JDK 21，执行 `./gradlew clean build`。
-- 产物：`build/libs/solapplepie-1.21.1-2.2.0-neoforge.jar`；客户端和服务器均需安装。
+- 产物：`build/libs/solapplepie Unofficial-1.1.0-1.21.1-neoforge.jar`；客户端和服务器均需安装。
 - 开发启动：`gradlew.bat runClient` / `gradlew.bat runServer`。
   工作目录分别为 `run/client` 和 `run/server`；服务器终端支持 `stop` 正常退出。
 
@@ -83,5 +84,5 @@
   背包满时掉落，食物返还物仍保留在午餐容器中。
 - 此次保留物品 ID 和组件存储格式，不需要清空既有午餐容器或修改配置。
 - 客户端与服务器均替换为修复后的 JAR，并移除旧的同模组 JAR，避免重复安装。
-  版本号仍为 2.2.0，请用构建产物与 `SOURCE_INFO.txt` 区分此次修复。
+  这次修复发布时仍沿用 `2.2.0`，可用 `SOURCE_INFO.txt` 区分当时的同版本构建。
 - 回归测试覆盖原版菜单内容同步调用链；尚未在报告中的完整整合包进行真人联机复测。

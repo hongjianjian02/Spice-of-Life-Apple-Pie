@@ -1,6 +1,7 @@
 /*
  * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
  * NeoForge port and associated regression tests / distribution notices.
+ * Modified 2026-11-20: share meal transitions and expose a read-only history summary.
  * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
  */
 package com.tarinoita.solsweetpotato.tracking;
@@ -98,46 +99,42 @@ public final class FoodList implements FoodCapability {
 		foodsEaten = tag.getInt(NBT_KEY_FOODS_EATEN);
 	}
 
+	private static final int EXPIRED = -1;
+
+	/** An excluded meal may advance the history without recording a new food. */
+	private record Meal(@Nullable FoodInstance recordedFood, boolean keepHighest, int windowSize) {
+		@Nullable
+		static Meal forItem(Item food) {
+			boolean allowed = SOLSweetPotatoConfig.shouldCount(food);
+			if (!allowed && !SOLSweetPotatoConfig.shouldForbiddenCount()) return null;
+			return new Meal(allowed ? new FoodInstance(food) : null,
+					SOLSweetPotatoConfig.keepHighestDiversityFoods(), SOLSweetPotatoConfig.size());
+		}
+
+		int ageAfter(FoodInstance previousFood, int mealsAgo) {
+			if (previousFood.equals(recordedFood)) return 0;
+			int nextAge = mealsAgo + 1;
+			if (keepHighest) return Math.min(MAX_FOODS_EATEN, nextAge);
+			return nextAge >= windowSize ? EXPIRED : nextAge;
+		}
+	}
+
 	public void addFood(Item food, Map<FoodInstance, Integer> foodMap) {
-		if (!SOLSweetPotatoConfig.shouldCount(food) && !SOLSweetPotatoConfig.shouldForbiddenCount()) {
-			return;
-		}
+		Meal meal = Meal.forItem(food);
+		if (meal == null) return;
 
-		if (foodsEaten < MAX_FOODS_EATEN) {
-			foodsEaten++;
-		}
-
-		if (SOLSweetPotatoConfig.keepHighestDiversityFoods()) {
-			// Keep distinct food history so later complexity edits can recompute the best foods.
-			foodMap.replaceAll((instance, age) -> Math.min(MAX_FOODS_EATEN, age + 1));
-			if (SOLSweetPotatoConfig.shouldCount(food)) {
-				foodMap.put(new FoodInstance(food), 0);
-			}
-			return;
-		}
-
-		ArrayList<FoodInstance> toRemove = new ArrayList<>();
-
-		for (Map.Entry<FoodInstance, Integer> entry : foodMap.entrySet()) {
-			FoodInstance foodInstance = entry.getKey();
-			Integer lastEaten = entry.getValue();
-
-			lastEaten++;
-			foodMap.put(foodInstance, lastEaten);
-
-			if (lastEaten >= SOLSweetPotatoConfig.size()) {
-				toRemove.add(foodInstance);
+		if (foodsEaten < MAX_FOODS_EATEN) foodsEaten++;
+		var entries = foodMap.entrySet().iterator();
+		while (entries.hasNext()) {
+			var entry = entries.next();
+			int nextAge = meal.ageAfter(entry.getKey(), entry.getValue());
+			if (nextAge == EXPIRED) {
+				entries.remove();
+			} else {
+				entry.setValue(nextAge);
 			}
 		}
-
-		for (FoodInstance foodInstance : toRemove) {
-			foodMap.remove(foodInstance);
-		}
-
-		if (SOLSweetPotatoConfig.shouldCount(food)) {
-			FoodInstance newlyEaten = new FoodInstance(food);
-			foodMap.put(newlyEaten, 0);
-		}
+		if (meal.recordedFood() != null) foodMap.putIfAbsent(meal.recordedFood(), 0);
 	}
 
 	public void addFood(Item food) {
@@ -148,39 +145,30 @@ public final class FoodList implements FoodCapability {
 	 * @return The change in food diversity from eating the food.
 	 */
 	public double simulateFoodAdd(Item food) {
-		if (!SOLSweetPotatoConfig.shouldCount(food) && !SOLSweetPotatoConfig.shouldForbiddenCount()) {
-			return 0.0;
+		Meal meal = Meal.forItem(food);
+		if (meal == null) return 0.0;
+		if (meal.keepHighest()) {
+			// Ages do not affect ranking; only a new eligible food can change the score.
+			if (meal.recordedFood() == null || uniqueFoods.containsKey(meal.recordedFood())) return 0.0;
+			var projected = new HashMap<>(uniqueFoods);
+			projected.put(meal.recordedFood(), 0);
+			return foodDiversity(projected.entrySet()) - foodDiversity();
 		}
-		if (SOLSweetPotatoConfig.keepHighestDiversityFoods()) {
-			Map<FoodInstance, Integer> simulated = new HashMap<>(uniqueFoods);
-			if (SOLSweetPotatoConfig.shouldCount(food)) simulated.put(new FoodInstance(food), 0);
-			return foodDiversity(simulated.entrySet()) - foodDiversity();
-		}
+
+		// Accumulate changes per food instead of subtracting two rounded totals. The
+		// lunch container compares these deltas directly when choosing among its slots.
 		double change = 0.0;
-
-		for (Map.Entry<FoodInstance, Integer> entry : uniqueFoods.entrySet()) {
-			FoodInstance foodInstance = entry.getKey();
-			Integer lastEaten = entry.getValue();
-
-			double diversityContribution = calculateDiversityContribution(foodInstance, lastEaten);
-			lastEaten++;
-
-			if (foodInstance.getItem().equals(food)) {
-				change -= diversityContribution;
-			}
-			else if (lastEaten >= SOLSweetPotatoConfig.size()) {
-				change -= diversityContribution;
-			}
-			else {
-				double newDiversityContribution = calculateDiversityContribution(foodInstance, lastEaten);
-				change += (newDiversityContribution - diversityContribution);
+		for (var entry : uniqueFoods.entrySet()) {
+			FoodInstance previousFood = entry.getKey();
+			int nextAge = meal.ageAfter(previousFood, entry.getValue());
+			double before = calculateDiversityContribution(previousFood, entry.getValue());
+			if (nextAge == EXPIRED || previousFood.equals(meal.recordedFood())) {
+				change -= before;
+			} else {
+				change += calculateDiversityContribution(previousFood, nextAge) - before;
 			}
 		}
-
-		if (SOLSweetPotatoConfig.shouldCount(food)) {
-			change += calculateDiversityContribution(new FoodInstance(food), 0);
-		}
-
+		if (meal.recordedFood() != null) change += calculateDiversityContribution(meal.recordedFood(), 0);
 		return change;
 	}
 
@@ -190,17 +178,14 @@ public final class FoodList implements FoodCapability {
 	}
 
 	public static double foodDiversity(Set<Map.Entry<FoodInstance, Integer>> foodData) {
+		return sumContributions(contributingFoods(foodData));
+	}
+
+	private static double sumContributions(Set<Map.Entry<FoodInstance, Integer>> foods) {
 		double diversity = 0;
-
-		Set<Map.Entry<FoodInstance, Integer>> contributingFoods = SOLSweetPotatoConfig.keepHighestDiversityFoods()
-				? highestDiversityFoods(foodData) : foodData;
-		for (Map.Entry<FoodInstance, Integer> entry : contributingFoods) {
-			FoodInstance food = entry.getKey();
-			Integer lastEaten = entry.getValue();
-
-			diversity += calculateDiversityContribution(food, lastEaten);
+		for (var entry : foods) {
+			diversity += calculateDiversityContribution(entry.getKey(), entry.getValue());
 		}
-
 		return diversity;
 	}
 
@@ -272,10 +257,33 @@ public final class FoodList implements FoodCapability {
 		return highest;
 	}
 
-	/** Only contributing foods are sent to book callers; persistence still stores the full history. */
+	private static Set<Map.Entry<FoodInstance, Integer>> contributingFoods(Set<Map.Entry<FoodInstance, Integer>> foods) {
+		return SOLSweetPotatoConfig.keepHighestDiversityFoods() ? highestDiversityFoods(foods) : foods;
+	}
+
 	public Set<Map.Entry<FoodInstance, Integer>> getData() {
-		return SOLSweetPotatoConfig.keepHighestDiversityFoods()
-				? highestDiversityFoods(uniqueFoods.entrySet()) : uniqueFoods.entrySet();
+		return contributingFoods(uniqueFoods.entrySet());
+	}
+
+	public record EatenFood(Item item, int mealsAgo) {}
+
+	public record HistorySummary(double diversity, int mealsEaten, List<EatenFood> foods) {
+		public HistorySummary {
+			foods = List.copyOf(foods);
+		}
+	}
+
+	/** Read the score and ordered foods from the same selection without exposing live map entries. */
+	public HistorySummary summarizeHistory() {
+		var selected = getData();
+		List<EatenFood> foods = new ArrayList<>(selected.size());
+		for (var entry : selected) {
+			foods.add(new EatenFood(entry.getKey().getItem(), entry.getValue()));
+		}
+		if (!SOLSweetPotatoConfig.keepHighestDiversityFoods()) {
+			foods.sort(Comparator.comparingInt(EatenFood::mealsAgo));
+		}
+		return new HistorySummary(sumContributions(selected), foodsEaten, foods);
 	}
 
 	public double getDiversityContribution(Item food) {

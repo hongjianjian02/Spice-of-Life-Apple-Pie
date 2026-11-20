@@ -1,6 +1,6 @@
 # 非官方 NeoForge 移植版发布说明
 
-更新日期：2026-11-15；维护分支：hongjianjian02。
+更新日期：2026-11-20；维护分支：hongjianjian02。移植版独立编号，当前版本为 `1.1.0`。
 
 ## 生成可分发包
 
@@ -13,9 +13,9 @@
 Linux/macOS 使用 `./gradlew clean releaseBundle`。
 此命令运行测试、验证许可证/源码打包，并生成：
 
-- `build/libs/solapplepie-1.21.1-2.2.0-neoforge.jar`：MOD 二进制，内含许可和来源说明。
-- `build/libs/solapplepie-1.21.1-2.2.0-neoforge-sources.zip`：与 JAR 对应的完整源码，含构建脚本、wrapper、资源、测试和许可证。
-- `build/distributions/solapplepie-1.21.1-2.2.0-neoforge-release.zip`：上述两个文件及许可证的合包。
+- `build/libs/solapplepie Unofficial-1.1.0-1.21.1-neoforge.jar`：MOD 二进制，内含许可和来源说明。
+- `build/libs/solapplepie Unofficial-1.1.0-1.21.1-neoforge-sources.zip`：与 JAR 对应的完整源码，含构建脚本、wrapper、资源、测试和许可证。
+- `build/distributions/solapplepie Unofficial-1.1.0-1.21.1-neoforge-release.zip`：上述两个文件及许可证的合包。
 
 JAR 与源码包中的 `SOURCE_INFO.txt` 必须一致。清单逐个列出源文件的 SHA-256，
 Git 提交 ID 只用于说明基础版本；如果包含未提交修改，源码 ZIP 仍保留实际构建文件。
