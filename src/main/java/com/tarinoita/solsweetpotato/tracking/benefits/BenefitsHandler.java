@@ -36,7 +36,7 @@ public class BenefitsHandler {
         }
 
         EffectBenefitsCapability effectBenefits = EffectBenefitsCapability.get(player);
-        effectBenefits.forEach(b -> b.onTick(player));
+        effectBenefits.tick(player);
     }
 
     public static void updateBenefits(Player player, double diversity) {
@@ -70,6 +70,9 @@ public class BenefitsHandler {
                 }
             });
         }
+
+        // A newly unlocked/changed tier resets every active diversity effect together.
+        effectBenefits.refreshAll(player);
     }
 
     @SubscribeEvent

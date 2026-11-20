@@ -151,3 +151,9 @@ Added `Miscellaneous.keepHighestDiversityFoods` (default false). In this mode, F
   containers; verify persistence, food-only restrictions and index validation.
 - `PORTING_1.21.1.md`: document the issue and replacement instructions. No item
   registry IDs, data-component schema, language resources or licenses were changed.
+
+## Diversity-effect timer synchronization — 2026-11-20
+
+- EffectBenefitsCapability now refreshes all active diversity status effects together whenever any effect is missing, weaker than its unlocked benefit, or at/below the shared 200-tick refresh threshold. New or changed reward tiers also refresh the active set together.
+- Each effect retains the existing 300-tick (15-second) duration and 200-tick (10-second) refresh threshold. Stronger same-type effects from another source are not downgraded. No benefit IDs or NBT fields changed.
+- Added a regression for missing/weaker effects and the exact 200/201-tick boundary.

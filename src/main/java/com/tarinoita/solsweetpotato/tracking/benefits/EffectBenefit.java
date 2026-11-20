@@ -21,8 +21,8 @@ import net.minecraft.world.effect.MobEffectInstance;
  */
 public final class EffectBenefit extends Benefit{
     private net.minecraft.core.Holder<MobEffect> effect;
-    private final int DEFAULT_DURATION = 300;
-    private final int REAPPLY_DURATION = 200;
+    public static final int DEFAULT_DURATION_TICKS = 300;
+    public static final int REFRESH_THRESHOLD_TICKS = 200;
 
     public EffectBenefit(String name, double value, double threshold, boolean detriment) {
         super("effect", name, value, threshold, detriment);
@@ -36,18 +36,36 @@ public final class EffectBenefit extends Benefit{
         effectBenefits.addEffectBenefitUnique(this);
     }
 
-    public void onTick(Player player) {
+    public boolean needsRefresh(Player player) {
+        if (!checkUsage() || player.level().isClientSide)
+            return false;
+
+        MobEffectInstance currentEffect = player.getEffect(effect);
+        return shouldRefresh(currentEffect != null,
+                currentEffect == null ? -1 : currentEffect.getAmplifier(),
+                currentEffect == null ? 0 : currentEffect.getDuration(),
+                (int) value);
+    }
+
+    public static boolean shouldRefresh(boolean hasEffect, int currentAmplifier,
+            int currentDuration, int benefitAmplifier) {
+        if (!hasEffect || currentAmplifier < benefitAmplifier)
+            return true;
+
+        return currentAmplifier == benefitAmplifier
+                && currentDuration <= REFRESH_THRESHOLD_TICKS;
+    }
+
+    public void refresh(Player player) {
         if (!checkUsage() || player.level().isClientSide)
             return;
 
-        // Only refresh this effect when less than REAPPLY_DURATION ticks remaining
         MobEffectInstance currentEffect = player.getEffect(effect);
-        if (currentEffect != null && currentEffect.getAmplifier() >= (int) value
-                && currentEffect.getDuration() > REAPPLY_DURATION) {
+        // Keep a stronger effect supplied by another source; do not downgrade it.
+        if (currentEffect != null && currentEffect.getAmplifier() > (int) value)
             return;
-        }
 
-        player.addEffect(new MobEffectInstance(effect, DEFAULT_DURATION, (int) value, false, false));
+        player.addEffect(new MobEffectInstance(effect, DEFAULT_DURATION_TICKS, (int) value, false, false));
     }
 
     public void removeFrom(Player player) {

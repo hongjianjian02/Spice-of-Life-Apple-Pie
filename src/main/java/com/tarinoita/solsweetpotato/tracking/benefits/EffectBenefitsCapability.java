@@ -49,6 +49,16 @@ public class EffectBenefitsCapability implements Iterable<EffectBenefit> {
         effectBenefits.clear();
     }
 
+    public void tick(Player player) {
+        if (effectBenefits.stream().anyMatch(benefit -> benefit.needsRefresh(player))) {
+            refreshAll(player);
+        }
+    }
+
+    public void refreshAll(Player player) {
+        effectBenefits.forEach(benefit -> benefit.refresh(player));
+    }
+
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
 

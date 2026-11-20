@@ -55,6 +55,14 @@ class EffectBenefitsRegressionTest {
         assertEquals(strong, active.iterator().next());
     }
 
+    @Test void diversityEffectsRefreshTogetherAtTheSharedThreshold() {
+        assertTrue(EffectBenefit.shouldRefresh(false, -1, 0, 3));
+        assertTrue(EffectBenefit.shouldRefresh(true, 2, 250, 3));
+        assertTrue(EffectBenefit.shouldRefresh(true, 3, 200, 3));
+        assertFalse(EffectBenefit.shouldRefresh(true, 3, 201, 3));
+        assertFalse(EffectBenefit.shouldRefresh(true, 4, 50, 3));
+    }
+
     @Test void matchingBenefitCanBeRemovedAfterPersistenceRoundTrip() {
         var resistance = effect("minecraft:resistance", 2, 9);
         var nightVision = effect("minecraft:night_vision", 0, 3);
