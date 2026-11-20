@@ -1,17 +1,20 @@
+// Modified 2026-11-15 by the hongjianjian02 fork: Simplified Chinese localization fixes.
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.client.gui;
 
 import com.tarinoita.solsweetpotato.client.gui.elements.UILabel;
 import com.tarinoita.solsweetpotato.tracking.benefits.BenefitInfo;
 import com.tarinoita.solsweetpotato.utils.RomanNumber;
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.ResourceLocationException;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.IForgeRegistry;
-import net.minecraftforge.registries.RegistryManager;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -84,14 +87,14 @@ public class BenefitsPage extends Page {
     private String getAttributeName(String name){
         Attribute attribute;
         try {
-            attribute = ForgeRegistries.ATTRIBUTES.getValue(new ResourceLocation(name));
+            attribute = BuiltInRegistries.ATTRIBUTE.get(ResourceLocation.parse(name));
         }
         catch (ResourceLocationException e) {
-            return "Invalid: " + name;
+            return localized("gui", "food_book.benefits.invalid", name);
         }
 
         if (attribute == null) {
-            return "Invalid: " + name;
+            return localized("gui", "food_book.benefits.invalid", name);
         }
 
         return I18n.get(attribute.getDescriptionId());
@@ -99,18 +102,17 @@ public class BenefitsPage extends Page {
 
     private String getEffectName(String name) {
         MobEffect effect;
-        IForgeRegistry<MobEffect> registry = RegistryManager.ACTIVE.getRegistry(Registry.MOB_EFFECT_REGISTRY);
         try {
-            effect = registry.getValue(new ResourceLocation(name));
+            effect = BuiltInRegistries.MOB_EFFECT.get(ResourceLocation.parse(name));
         }
         catch (ResourceLocationException e) {
-            return "Invalid: " + name;
+            return localized("gui", "food_book.benefits.invalid", name);
         }
 
         if (effect == null) {
-            return "Invalid: " + name;
+            return localized("gui", "food_book.benefits.invalid", name);
         }
 
-        return I18n.get(effect.getDisplayName().getString());
+        return effect.getDisplayName().getString();
     }
 }

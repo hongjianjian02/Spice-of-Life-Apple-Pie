@@ -1,3 +1,9 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Modified 2026-11-18: accept empty stacks when synchronizing or clearing lunch-container slots.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 /**
  * Much of the following code was adapted from Cyclic's storage bag code.
  * Copyright for portions of the code are held by Samson Basset (Lothrazar)
@@ -5,50 +11,18 @@
  */
 package com.tarinoita.solsweetpotato.item.foodcontainer;
 
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ICapabilitySerializable;
-import net.minecraftforge.common.util.LazyOptional;
-import net.minecraftforge.items.CapabilityItemHandler;
-import net.minecraftforge.items.ItemStackHandler;
+import net.neoforged.neoforge.items.ComponentItemHandler;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
-public class FoodContainerCapabilityProvider implements ICapabilitySerializable<CompoundTag> {
-    private int slots;
-    private final LazyOptional<ItemStackHandler> inventory = LazyOptional.of(() -> new ItemStackHandler(slots) {
-
-        @Override
-        public boolean isItemValid(int slot, @Nonnull ItemStack stack) {
-            return !(stack.getItem() instanceof FoodContainerItem) && super.isItemValid(slot, stack);
-        }
-    });
-
-    public FoodContainerCapabilityProvider(ItemStack stack, int slots) {
-        this.slots = slots;
+/** Live stack-bound storage using the vanilla persistent, synchronized container component. */
+public final class FoodContainerCapabilityProvider extends ComponentItemHandler {
+    public FoodContainerCapabilityProvider(ItemStack container, int slots) {
+        super(container, DataComponents.CONTAINER, slots);
     }
-
-    @Nonnull
-    @Override
-    public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> cap, @Nullable Direction side) {
-        if (cap == CapabilityItemHandler.ITEM_HANDLER_CAPABILITY)
-            return inventory.cast();
-        return LazyOptional.empty();
-    }
-
-    @Override
-    public CompoundTag serializeNBT() {
-        if (inventory.isPresent()) {
-            return inventory.resolve().get().serializeNBT();
-        }
-        return new CompoundTag();
-    }
-
-    @Override
-    public void deserializeNBT(CompoundTag nbt) {
-        inventory.ifPresent(h -> h.deserializeNBT(nbt));
+    @Override public boolean isItemValid(int slot, ItemStack stack) {
+        // setStackInSlot validates empty writes too (menu sync, removal, and consumption).
+        // Keep FoodSlot's placement predicate food-only; EMPTY represents clearing, not insertion.
+        return stack.isEmpty() || FoodSlot.canHold(stack);
     }
 }

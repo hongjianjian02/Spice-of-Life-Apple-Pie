@@ -1,3 +1,8 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato;
 
 import com.tarinoita.solsweetpotato.communication.ConfigMessage;
@@ -9,19 +14,19 @@ import com.tarinoita.solsweetpotato.utils.ComplexityParser;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.nbt.*;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.network.NetworkDirection;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Mod.EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
+@EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
 public class ConfigHandler {
     public static Map<FoodInstance, Double> complexityMap = new HashMap<>();
     public static List<Double> thresholds = new ArrayList<>();
@@ -90,7 +95,7 @@ public class ConfigHandler {
             String foodString = cnbt.getString(FOOD_KEY);
             FoodInstance food = FoodInstance.decode(foodString);
             double complexity = cnbt.getDouble(COMPLEXITY_VALUE_KEY);
-            newComplexityMap.put(food, complexity);
+            if (food != null && Double.isFinite(complexity)) newComplexityMap.put(food, complexity);
         }
         complexityMap = newComplexityMap;
     }
@@ -103,6 +108,10 @@ public class ConfigHandler {
 
     @SubscribeEvent
     public static void onServerStart(ServerStartingEvent event) {
+        reloadConfig();
+    }
+
+    public static void reloadConfig() {
         complexityMap = ComplexityParser.parse(SOLSweetPotatoConfig.getComplexityUnparsed());
         thresholds = SOLSweetPotatoConfig.getThresholds();
         List<List<Benefit>> benefits = BenefitsParser.parse(SOLSweetPotatoConfig.getBenefitsUnparsed());
@@ -121,13 +130,9 @@ public class ConfigHandler {
     }
 
     public static void syncConfig(Player player) {
-        if (player.level.isClientSide) return;
+        if (player.level().isClientSide) return;
 
         ServerPlayer target = (ServerPlayer) player;
-        SOLSweetPotato.channel.sendTo(
-                new ConfigMessage(),
-                target.connection.getConnection(),
-                NetworkDirection.PLAY_TO_CLIENT
-        );
+        PacketDistributor.sendToPlayer(target, new ConfigMessage());
     }
 }

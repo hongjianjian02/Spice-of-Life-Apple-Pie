@@ -1,0 +1,25 @@
+Spice of Life: Apple Pie Edition - Unofficial NeoForge Port
+
+This is an independently maintained fork, not an official release by the upstream authors.
+Upstream: https://github.com/txnimc/Spice-of-Life-Apple-Pie
+Fork / source: https://github.com/hongjianjian02/Spice-of-Life-Apple-Pie
+
+Original authors and contributors include tarinoita, Vice, Kevun1 and the
+Spice of Life: Carrot Edition team. Their existing notices and credits are retained.
+Port modifications: 2026-11-15, maintained in the hongjianjian02 fork.
+See MODIFICATIONS.md for changed paths, dates and source history.
+
+The mod and its port modifications remain under GNU LGPL version 2.1 as
+provided by upstream in LICENSE.txt. No additional restriction is imposed.
+This distribution is provided WITHOUT ANY WARRANTY, including implied warranties
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE; see LICENSE.txt.
+
+Cyclic-derived portions retain their MIT notices; see THIRD_PARTY_NOTICES.md
+and licenses/Cyclic-MIT.txt. Gradle Wrapper build tooling retains its Apache 2.0
+license; see licenses/Gradle-Wrapper-Apache-2.0.txt and the wrapper's own notices.
+The independent build tooling is not relicensed by the mod's LGPL notice.
+
+Distributors must provide the corresponding source, including build scripts,
+with this binary or equivalent download access as permitted by LGPL 2.1.
+The releaseBundle task includes the matching complete source ZIP. SOURCE_INFO.txt
+identifies the source snapshot embedded in the binary and source archive.

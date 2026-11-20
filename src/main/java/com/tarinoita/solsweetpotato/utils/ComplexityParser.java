@@ -1,3 +1,8 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.utils;
 
 import com.tarinoita.solsweetpotato.SOLSweetPotato;
@@ -5,7 +10,7 @@ import com.tarinoita.solsweetpotato.tracking.FoodInstance;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.ResourceLocationException;
 import net.minecraft.world.item.Item;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.HashMap;
 import java.util.List;
@@ -34,18 +39,17 @@ public class ComplexityParser {
 
             Item item;
             try {
-                item = ForgeRegistries.ITEMS.getValue(new ResourceLocation(foodString));
+                item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(foodString));
             }
             catch (ResourceLocationException e) {
                 SOLSweetPotato.LOGGER.warn("Invalid item name: " + foodString);
                 continue;
             }
-            if (item == null) {
-                SOLSweetPotato.LOGGER.warn("Invalid item name: " + foodString);
-                continue;
+            if (item == net.minecraft.world.item.Items.AIR) {
+                continue; // Optional mod food is not installed.
             }
 
-            if (!item.isEdible()) {
+            if (item.getDefaultInstance().getFoodProperties(null) == null) {
                 SOLSweetPotato.LOGGER.warn("Item is not food: " + foodString);
                 continue;
             }

@@ -1,15 +1,19 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.client.gui.elements;
 
 import com.tarinoita.solsweetpotato.client.TooltipHandler;
 import com.tarinoita.solsweetpotato.tracking.FoodInstance;
 import com.tarinoita.solsweetpotato.tracking.FoodList;
-import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.*;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
-
 
 /**
  * Renders an ItemStack representing a food in the FoodList. Has a unique tooltip that displays that food item's
@@ -25,14 +29,14 @@ public class UIFoodQueueItem extends UIItemStack{
     }
 
     @Override
-    protected void renderTooltip(PoseStack matrices, int mouseX, int mouseY) {
+    protected void renderTooltip(GuiGraphics matrices, int mouseX, int mouseY) {
         List<Component> tooltip = getFoodQueueTooltip();
         renderTooltip(matrices, itemStack, tooltip, mouseX, mouseY);
     }
 
     private List<Component> getFoodQueueTooltip() {
         Component foodName =  Component.translatable(itemStack.getItem().getDescriptionId(itemStack))
-                .withStyle(itemStack.getRarity().color);
+                .withStyle(itemStack.getRarity().getStyleModifier());
 
         List<Component> tooltip = new ArrayList<>();
         tooltip.add(foodName);

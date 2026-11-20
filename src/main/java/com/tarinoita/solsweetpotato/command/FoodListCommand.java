@@ -1,3 +1,9 @@
+// Modified 2026-11-15 by the hongjianjian02 fork: Simplified Chinese localization fixes.
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.command;
 
 import com.tarinoita.solsweetpotato.SOLSweetPotato;
@@ -10,25 +16,26 @@ import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.ChatFormatting;
-import net.minecraft.commands.CommandRuntimeException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.network.chat.*;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.common.EventBusSubscriber;
 
+import java.util.Locale;
 import java.util.Objects;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
 
-@Mod.EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
+@EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
 public final class FoodListCommand {
 	private static final String name = "solapplepie";
-	
+
 	@SubscribeEvent
 	public static void register(RegisterCommandsEvent event) {
 		event.getDispatcher().register(
@@ -40,7 +47,7 @@ public final class FoodListCommand {
 				.then(withNoArgument(literal("resetAllOrigins"), FoodListCommand::resetAllOrigins))
 		);
 	}
-	
+
 	@FunctionalInterface
 	private interface CommandWithPlayer {
 		int run(CommandContext<CommandSourceStack> context, Player target) throws CommandSyntaxException;
@@ -48,9 +55,9 @@ public final class FoodListCommand {
 
 	@FunctionalInterface
 	private interface CommandWithoutArgs {
-		int run(CommandContext<CommandSourceStack> context);
+		int run(CommandContext<CommandSourceStack> context) throws CommandSyntaxException;
 	}
-	
+
 	static ArgumentBuilder<CommandSourceStack, ?> withPlayerArgumentOrSender(ArgumentBuilder<CommandSourceStack, ?> base, CommandWithPlayer command) {
 		String target = "target";
 		return base
@@ -65,52 +72,52 @@ public final class FoodListCommand {
 				.executes((context) -> command.run(context));
 	}
 
-	static int displayDiversity(CommandContext<CommandSourceStack> context, Player target) {
+	static int displayDiversity(CommandContext<CommandSourceStack> context, Player target) throws CommandSyntaxException {
 		boolean isOp = context.getSource().hasPermission(2);
 		boolean isTargetingSelf = isTargetingSelf(context, target);
 		if (!isOp && !isTargetingSelf)
-			throw new CommandRuntimeException(localizedComponent("no_permissions"));
+			throw new SimpleCommandExceptionType(localizedComponent("no_permissions")).create();
 
 		double diversity = FoodList.get(target).foodDiversity();
-		MutableComponent feedback = localizedComponent("diversity_feedback", diversity);
+		MutableComponent feedback = localizedComponent("diversity_feedback", String.format(Locale.ROOT, "%.2f", diversity));
 		sendFeedback(context.getSource(), feedback);
 		return Command.SINGLE_SUCCESS;
 	}
-	
+
 	static int syncFoodList(CommandContext<CommandSourceStack> context, Player target) {
 		CapabilityHandler.syncFoodList(target);
-		
+
 		sendFeedback(context.getSource(), localizedComponent("sync.success"));
 		System.out.println(target.getMaxHealth());
 		return Command.SINGLE_SUCCESS;
 	}
-	
-	static int clearFoodList(CommandContext<CommandSourceStack> context, Player target) {
+
+	static int clearFoodList(CommandContext<CommandSourceStack> context, Player target) throws CommandSyntaxException {
 		boolean isOp = context.getSource().hasPermission(2);
 		boolean isTargetingSelf = isTargetingSelf(context, target);
 		if (!isOp && !isTargetingSelf)
-			throw new CommandRuntimeException(localizedComponent("no_permissions"));
-		
+			throw new SimpleCommandExceptionType(localizedComponent("no_permissions")).create();
+
 		FoodList.get(target).clearFood();
 		FoodList.get(target).resetFoodsEaten();
 		BenefitsHandler.removeAllBenefits(target);
 		BenefitsHandler.updatePlayer(target);
 		CapabilityHandler.syncFoodList(target);
-		
+
 		MutableComponent feedback = localizedComponent("clear.success");
 		sendFeedback(context.getSource(), feedback);
 		if (!isTargetingSelf) {
 			target.displayClientMessage(applyFeedbackStyle(feedback), true);
 		}
-		
+
 		return Command.SINGLE_SUCCESS;
 	}
 
-	static int resetPlayerOrigin(CommandContext<CommandSourceStack> context, Player target) {
+	static int resetPlayerOrigin(CommandContext<CommandSourceStack> context, Player target) throws CommandSyntaxException {
 		boolean isOp = context.getSource().hasPermission(2);
 		boolean isTargetingSelf = isTargetingSelf(context, target);
 		if (!isOp && !isTargetingSelf)
-			throw new CommandRuntimeException(localizedComponent("no_permissions"));
+			throw new SimpleCommandExceptionType(localizedComponent("no_permissions")).create();
 
 		Origins.cacheInvalidate(target);
 
@@ -128,10 +135,10 @@ public final class FoodListCommand {
 		return Command.SINGLE_SUCCESS;
 	}
 
-	static int resetAllOrigins(CommandContext<CommandSourceStack> context) {
+	static int resetAllOrigins(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		boolean isOp = context.getSource().hasPermission(2);
 		if (!isOp)
-			throw new CommandRuntimeException(localizedComponent("no_permissions"));
+			throw new SimpleCommandExceptionType(localizedComponent("no_permissions")).create();
 
 		Origins.clearCache();
 
@@ -145,27 +152,27 @@ public final class FoodListCommand {
 
 		return Command.SINGLE_SUCCESS;
 	}
-	
+
 	static void sendFeedback(CommandSourceStack source, MutableComponent message) {
-		source.sendSuccess(applyFeedbackStyle(message), true);
+		source.sendSuccess(() -> applyFeedbackStyle(message), true);
 	}
-	
+
 	private static MutableComponent applyFeedbackStyle(MutableComponent text) {
 		return text.withStyle(style -> style.applyFormat(ChatFormatting.DARK_AQUA));
 	}
-	
+
 	static boolean isTargetingSelf(CommandContext<CommandSourceStack> context, Player target) {
 		return target.is(Objects.requireNonNull(context.getSource().getEntity()));
 	}
-	
+
 	static MutableComponent localizedComponent(String path, Object... args) {
 		return Localization.localizedComponent("command", localizationPath(path), args);
 	}
-	
+
 	static MutableComponent localizedQuantityComponent(String path, int number) {
 		return Localization.localizedQuantityComponent("command", localizationPath(path), number);
 	}
-	
+
 	static String localizationPath(String path) {
 		return FoodListCommand.name + "." + path;
 	}

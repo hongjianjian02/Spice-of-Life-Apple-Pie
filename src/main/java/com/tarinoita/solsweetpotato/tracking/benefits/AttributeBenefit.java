@@ -1,3 +1,8 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.tracking.benefits;
 
 import com.tarinoita.solsweetpotato.ConfigHandler;
@@ -12,8 +17,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.ResourceLocationException;
-import net.minecraftforge.registries.ForgeRegistries;
-
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -23,32 +27,32 @@ import java.util.UUID;
  */
 public final class AttributeBenefit extends Benefit {
     private final AttributeModifier modifier;
-    private final UUID id;
-    private Attribute attribute;
+    private final ResourceLocation id;
+    private net.minecraft.core.Holder<Attribute> attribute;
     private final boolean isMaxHealth;
 
     public AttributeBenefit(String name, double value, double threshold, boolean detriment) {
         super("attribute", name, value, threshold, detriment);
 
-        id = UUID.randomUUID();
+        id = SOLSweetPotato.resourceLocation("benefit/" + UUID.nameUUIDFromBytes((name + ":" + threshold + ":" + value + ":" + detriment).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
-        modifier = new AttributeModifier(id, name + "_modifier_" + value, value, AttributeModifier.Operation.ADDITION);
+        modifier = new AttributeModifier(id, value, AttributeModifier.Operation.ADD_VALUE);
 
-        isMaxHealth = name.equals("generic.max_health");
+        isMaxHealth = (name.equals("generic.max_health") || name.equals("minecraft:generic.max_health"));
     }
 
     public AttributeBenefit(String name, double value, double threshold, String uuid, boolean detriment) {
         super("attribute", name, value, threshold, detriment);
 
-        id = UUID.fromString(uuid);
+        id = uuid.contains(":") ? ResourceLocation.parse(uuid) : SOLSweetPotato.resourceLocation("benefit/" + uuid);
 
-        modifier = new AttributeModifier(id, name + "_modifier_" + value, value, AttributeModifier.Operation.ADDITION);
+        modifier = new AttributeModifier(id, value, AttributeModifier.Operation.ADD_VALUE);
 
-        isMaxHealth = name.equals("generic.max_health");
+        isMaxHealth = (name.equals("generic.max_health") || name.equals("minecraft:generic.max_health"));
     }
 
     public void applyTo(Player player) {
-        if (!checkUsage() || player.level.isClientSide)
+        if (!checkUsage() || player.level().isClientSide)
             return;
 
         float oldMax = player.getMaxHealth();
@@ -58,11 +62,11 @@ public final class AttributeBenefit extends Benefit {
             attr = Objects.requireNonNull(player.getAttribute(attribute));
         }
         catch (NullPointerException e) {
-            SOLSweetPotato.LOGGER.warn("ERROR: player does not have attribute: " + attribute.getDescriptionId());
+            SOLSweetPotato.LOGGER.warn("ERROR: player does not have attribute: " + attribute.value().getDescriptionId());
             return;
         }
 
-        attr.removeModifier(modifier);
+        attr.removeModifier(id);
         attr.addPermanentModifier(modifier);
 
         if (isMaxHealth && !ConfigHandler.isFirstAid) {
@@ -73,7 +77,7 @@ public final class AttributeBenefit extends Benefit {
     }
 
     public void removeFrom(Player player) {
-        if (!checkUsage() || player.level.isClientSide)
+        if (!checkUsage() || player.level().isClientSide)
             return;
 
         AttributeInstance attr;
@@ -81,10 +85,10 @@ public final class AttributeBenefit extends Benefit {
             attr = Objects.requireNonNull(player.getAttribute(attribute));
         }
         catch (NullPointerException e) {
-            SOLSweetPotato.LOGGER.warn("ERROR: player does not have attribute: " + attribute.getDescriptionId());
+            SOLSweetPotato.LOGGER.warn("ERROR: player does not have attribute: " + attribute.value().getDescriptionId());
             return;
         }
-        attr.removeModifier(modifier);
+        attr.removeModifier(id);
     }
 
     private boolean checkUsage() {
@@ -102,7 +106,7 @@ public final class AttributeBenefit extends Benefit {
 
     private void createAttribute() {
         try {
-            attribute = ForgeRegistries.ATTRIBUTES.getValue(new ResourceLocation(name));
+            attribute = BuiltInRegistries.ATTRIBUTE.getHolder(ResourceLocation.parse(name)).orElse(null);
         }
         catch (ResourceLocationException e) {
             markInvalid();

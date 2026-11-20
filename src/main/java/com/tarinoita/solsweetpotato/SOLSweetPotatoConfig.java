@@ -1,3 +1,8 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato;
 
 import com.tarinoita.solsweetpotato.tracking.CapabilityHandler;
@@ -7,61 +12,61 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.item.Item;
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.common.ForgeConfigSpec.*;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.config.ModConfigEvent;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.server.ServerLifecycleHooks;
+import net.neoforged.neoforge.common.ModConfigSpec;
+import net.neoforged.neoforge.common.ModConfigSpec.*;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 import java.util.regex.Pattern;
 
-
-@Mod.EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
+@EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
 public final class SOLSweetPotatoConfig
 {
 	private static String localizationPath(String path) {
 		return "config." + SOLSweetPotato.MOD_ID + "." + path;
 	}
-	
+
 	public static final Server SERVER;
-	public static final ForgeConfigSpec SERVER_SPEC;
+	public static final ModConfigSpec SERVER_SPEC;
 
 	static {
-		Pair<Server, ForgeConfigSpec> specPair = new Builder().configure(Server::new);
+		Pair<Server, ModConfigSpec> specPair = new Builder().configure(Server::new);
 		SERVER = specPair.getLeft();
 		SERVER_SPEC = specPair.getRight();
 	}
-	
+
 	public static final Client CLIENT;
-	public static final ForgeConfigSpec CLIENT_SPEC;
-	
+	public static final ModConfigSpec CLIENT_SPEC;
+
 	static {
-		Pair<Client, ForgeConfigSpec> specPair = new Builder().configure(Client::new);
+		Pair<Client, ModConfigSpec> specPair = new Builder().configure(Client::new);
 		CLIENT = specPair.getLeft();
 		CLIENT_SPEC = specPair.getRight();
 	}
-	
-	public static void setUp() {
-		ModLoadingContext context = ModLoadingContext.get();
+
+	public static void setUp(ModContainer context) {
 		context.registerConfig(ModConfig.Type.SERVER, SERVER_SPEC);
 		context.registerConfig(ModConfig.Type.CLIENT, CLIENT_SPEC);
 	}
-	
+
 	@SubscribeEvent
 	public static void onConfigReload(ModConfigEvent.Reloading event) {
 		MinecraftServer currentServer = ServerLifecycleHooks.getCurrentServer();
-		if (currentServer == null) return;
-		
+		if (currentServer == null || event.getConfig().getSpec() != SERVER_SPEC) return;
+        for (Player player : currentServer.getPlayerList().getPlayers()) BenefitsHandler.removeAllBenefits(player);
+        ConfigHandler.reloadConfig();
+
 		PlayerList players = currentServer.getPlayerList();
 		for (Player player : players.getPlayers()) {
-			BenefitsHandler.removeAllBenefits(player);
 			BenefitsHandler.updatePlayer(player);
+            ConfigHandler.syncConfig(player);
 			CapabilityHandler.syncFoodList(player);
 		}
 	}
@@ -69,7 +74,7 @@ public final class SOLSweetPotatoConfig
 	public static List<String> getBlacklist() {
 		return new ArrayList<>(SERVER.blacklist.get());
 	}
-	
+
 	public static List<String> getWhitelist() {
 		return new ArrayList<>(SERVER.whitelist.get());
 	}
@@ -83,12 +88,16 @@ public final class SOLSweetPotatoConfig
 	public static boolean shouldResetOnDeath() {
 		return SERVER.shouldResetOnDeath.get();
 	}
-	
+
 	public static boolean limitProgressionToSurvival() {
 		return SERVER.limitProgressionToSurvival.get();
 	}
 
 	public static boolean shouldForbiddenCount() { return SERVER.shouldForbiddenCount.get(); }
+
+	public static boolean keepHighestDiversityFoods() {
+		return SERVER.keepHighestDiversityFoods.get();
+	}
 
 	public static Integer size() {
 		return SERVER.queueSize.get();
@@ -113,13 +122,14 @@ public final class SOLSweetPotatoConfig
 	public static Integer minFoodsToActivate() {
 		return SERVER.minFoodsToActivate.get();
 	}
-	
+
 	public static class Server {
 		public final ConfigValue<List<? extends String>> blacklist;
 		public final ConfigValue<List<? extends String>> whitelist;
 
 		public final IntValue queueSize;
-		
+		public final BooleanValue keepHighestDiversityFoods;
+
 		public final BooleanValue shouldResetOnDeath;
 		public final BooleanValue limitProgressionToSurvival;
 
@@ -239,6 +249,12 @@ public final class SOLSweetPotatoConfig
 							+"\n")
 					.defineInRange("queueSize", 32, 1, 1000);
 
+			keepHighestDiversityFoods = builder
+					.translation(localizationPath("keep_highest_diversity_foods"))
+					.comment("Keep all eligible foods eaten in persistent history and count only the highest-complexity queueSize distinct foods.\n"
+							+ "Lower-scoring or repeated foods do not displace higher-scoring foods. Time decay is ignored in this mode.")
+					.define("keepHighestDiversityFoods", false);
+
 			builder.pop();
 			builder.push("Advanced");
 
@@ -334,10 +350,10 @@ public final class SOLSweetPotatoConfig
 	public static class Client {
 		public final BooleanValue isFoodTooltipEnabled;
 		public final BooleanValue shouldShowInactiveBenefits;
-		
+
 		Client(Builder builder) {
 			builder.push("miscellaneous");
-			
+
 			isFoodTooltipEnabled = builder
 				.translation(localizationPath("is_food_tooltip_enabled"))
 				.comment(" If true, foods indicate in their tooltips the last time they've been eaten, and their current diversity contribution."
@@ -349,26 +365,26 @@ public final class SOLSweetPotatoConfig
 				.comment("\n If true, the food book lists benefits that you haven't acquired yet, in addition to the ones you have.\n"
 						+"\n")
 				.define("shouldShowInactiveBenefits", true);
-			
+
 			builder.pop();
 		}
 	}
-	
+
 	// TODO: investigate performance of all these get() calls
-	
+
 	public static boolean hasWhitelist() {
 		return !SERVER.whitelist.get().isEmpty();
 	}
-	
+
 	public static boolean isAllowed(Item food) {
-		String id = Objects.requireNonNull(ForgeRegistries.ITEMS.getKey(food)).toString();
+		String id = Objects.requireNonNull(BuiltInRegistries.ITEM.getKey(food)).toString();
 		if (hasWhitelist()) {
 			return matchesAnyPattern(id, SERVER.whitelist.get());
 		} else {
 			return !matchesAnyPattern(id, SERVER.blacklist.get());
 		}
 	}
-	
+
 	public static boolean shouldCount(Item food) {
 		return isAllowed(food);
 	}
@@ -382,10 +398,10 @@ public final class SOLSweetPotatoConfig
 				}
 				pattern.append(".*");
 			}
-			
+
 			// delete extraneous trailing ".*" wildcard
 			pattern.delete(pattern.length() - 2, pattern.length());
-			
+
 			if (Pattern.matches(pattern.toString(), query)) {
 				return true;
 			}

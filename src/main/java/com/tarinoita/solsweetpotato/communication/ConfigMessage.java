@@ -1,39 +1,24 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.communication;
-
+import com.tarinoita.solsweetpotato.SOLSweetPotato;
 import com.tarinoita.solsweetpotato.ConfigHandler;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
-
-public class ConfigMessage {
-    private CompoundTag configNBT;
-
-    public ConfigMessage() {
-        this.configNBT = ConfigHandler.serializeConfig();
-    }
-
-    public ConfigMessage(FriendlyByteBuf buffer) {
-        this.configNBT = buffer.readNbt();
-    }
-
-    public void write(FriendlyByteBuf buffer) {
-        buffer.writeNbt(configNBT);
-    }
-
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ConfigMessage.Handler.handle(this, context));
-    }
-
-    private static class Handler {
-        static void handle(ConfigMessage message, Supplier<NetworkEvent.Context> context) {
-            context.get().enqueueWork(() -> {
-                ConfigHandler.deserializeConfig(message.configNBT);
-            });
-            context.get().setPacketHandled(true);
-        }
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+public record ConfigMessage(CompoundTag configNBT) implements CustomPacketPayload {
+    public static final Type<ConfigMessage> TYPE = new Type<>(SOLSweetPotato.resourceLocation("configmessage"));
+    public static final StreamCodec<RegistryFriendlyByteBuf, ConfigMessage> STREAM_CODEC = StreamCodec.composite(
+        ByteBufCodecs.COMPOUND_TAG, ConfigMessage::configNBT, ConfigMessage::new);
+    public ConfigMessage() { this(ConfigHandler.serializeConfig()); }
+    @Override public Type<ConfigMessage> type() { return TYPE; }
+    public static void handle(ConfigMessage message, IPayloadContext context) {
+        ConfigHandler.deserializeConfig(message.configNBT);
     }
 }

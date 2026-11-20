@@ -1,17 +1,19 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Modified 2026-11-20: share meal transitions and expose a read-only history summary.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.tracking;
 
 import com.tarinoita.solsweetpotato.ConfigHandler;
 import com.tarinoita.solsweetpotato.SOLSweetPotatoConfig;
 import com.tarinoita.solsweetpotato.api.FoodCapability;
-import com.tarinoita.solsweetpotato.api.SOLSweetPotatoAPI;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
-import net.minecraft.core.Direction;
 import net.minecraft.nbt.*;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.util.LazyOptional;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -23,25 +25,17 @@ public final class FoodList implements FoodCapability {
 	private static final String NBT_KEY_UNIQUE_FOOD = "food";
 	private static final String NBT_KEY_LAST_EATEN = "lastEaten";
 	private static final String NBT_KEY_FOODS_EATEN = "foodsEaten";
-	
+
 	public static FoodList get(Player player) {
-		return (FoodList) player.getCapability(SOLSweetPotatoAPI.foodCapability)
-			.orElseThrow(FoodListNotFoundException::new);
+		return player.getData(CapabilityHandler.FOOD);
 	}
 
 	private static final int MAX_FOODS_EATEN = 1000;
 	private int foodsEaten = 0;
 	// Keys - foods eaten, Values - lastEaten, i.e. # meals ago the food was last eaten
 	private final Map<FoodInstance, Integer> uniqueFoods = new HashMap<>();
-	
+
 	public FoodList() {}
-	
-	private final LazyOptional<FoodList> capabilityOptional = LazyOptional.of(() -> this);
-	
-	@Override
-	public <T> LazyOptional<T> getCapability(Capability<T> capability, @Nullable Direction side) {
-		return capability == SOLSweetPotatoAPI.foodCapability ? capabilityOptional.cast() : LazyOptional.empty();
-	}
 
 	@Nullable
 	private CompoundTag serializeUniqueFood(Map.Entry<FoodInstance, Integer> foodPair) {
@@ -61,12 +55,12 @@ public final class FoodList implements FoodCapability {
 
 		return tag;
 	}
-	
+
 	/** used for persistent storage */
 	@Override
 	public CompoundTag serializeNBT() {
 		CompoundTag tag = new CompoundTag();
-		
+
 		ListTag list = new ListTag();
 
 		uniqueFoods.entrySet().stream()
@@ -105,39 +99,44 @@ public final class FoodList implements FoodCapability {
 		foodsEaten = tag.getInt(NBT_KEY_FOODS_EATEN);
 	}
 
-	public void addFood(Item food, Map<FoodInstance, Integer> foodMap) {
-		if (!SOLSweetPotatoConfig.shouldCount(food) && !SOLSweetPotatoConfig.shouldForbiddenCount()) {
-			return;
+	private static final int EXPIRED = -1;
+
+	/** An excluded meal may advance the history without recording a new food. */
+	private record Meal(@Nullable FoodInstance recordedFood, boolean keepHighest, int windowSize) {
+		@Nullable
+		static Meal forItem(Item food) {
+			boolean allowed = SOLSweetPotatoConfig.shouldCount(food);
+			if (!allowed && !SOLSweetPotatoConfig.shouldForbiddenCount()) return null;
+			return new Meal(allowed ? new FoodInstance(food) : null,
+					SOLSweetPotatoConfig.keepHighestDiversityFoods(), SOLSweetPotatoConfig.size());
 		}
 
-		if (foodsEaten < MAX_FOODS_EATEN) {
-			foodsEaten++;
-		}
-
-		ArrayList<FoodInstance> toRemove = new ArrayList<>();
-
-		for (Map.Entry<FoodInstance, Integer> entry : foodMap.entrySet()) {
-			FoodInstance foodInstance = entry.getKey();
-			Integer lastEaten = entry.getValue();
-
-			lastEaten++;
-			foodMap.put(foodInstance, lastEaten);
-
-			if (lastEaten >= SOLSweetPotatoConfig.size()) {
-				toRemove.add(foodInstance);
-			}
-		}
-
-		for (FoodInstance foodInstance : toRemove) {
-			foodMap.remove(foodInstance);
-		}
-
-		if (SOLSweetPotatoConfig.shouldCount(food)) {
-			FoodInstance newlyEaten = new FoodInstance(food);
-			foodMap.put(newlyEaten, 0);
+		int ageAfter(FoodInstance previousFood, int mealsAgo) {
+			if (previousFood.equals(recordedFood)) return 0;
+			int nextAge = mealsAgo + 1;
+			if (keepHighest) return Math.min(MAX_FOODS_EATEN, nextAge);
+			return nextAge >= windowSize ? EXPIRED : nextAge;
 		}
 	}
-	
+
+	public void addFood(Item food, Map<FoodInstance, Integer> foodMap) {
+		Meal meal = Meal.forItem(food);
+		if (meal == null) return;
+
+		if (foodsEaten < MAX_FOODS_EATEN) foodsEaten++;
+		var entries = foodMap.entrySet().iterator();
+		while (entries.hasNext()) {
+			var entry = entries.next();
+			int nextAge = meal.ageAfter(entry.getKey(), entry.getValue());
+			if (nextAge == EXPIRED) {
+				entries.remove();
+			} else {
+				entry.setValue(nextAge);
+			}
+		}
+		if (meal.recordedFood() != null) foodMap.putIfAbsent(meal.recordedFood(), 0);
+	}
+
 	public void addFood(Item food) {
 		addFood(food, uniqueFoods);
 	}
@@ -146,34 +145,30 @@ public final class FoodList implements FoodCapability {
 	 * @return The change in food diversity from eating the food.
 	 */
 	public double simulateFoodAdd(Item food) {
-		if (!SOLSweetPotatoConfig.shouldCount(food) && !SOLSweetPotatoConfig.shouldForbiddenCount()) {
-			return 0.0;
+		Meal meal = Meal.forItem(food);
+		if (meal == null) return 0.0;
+		if (meal.keepHighest()) {
+			// Ages do not affect ranking; only a new eligible food can change the score.
+			if (meal.recordedFood() == null || uniqueFoods.containsKey(meal.recordedFood())) return 0.0;
+			var projected = new HashMap<>(uniqueFoods);
+			projected.put(meal.recordedFood(), 0);
+			return foodDiversity(projected.entrySet()) - foodDiversity();
 		}
+
+		// Accumulate changes per food instead of subtracting two rounded totals. The
+		// lunch container compares these deltas directly when choosing among its slots.
 		double change = 0.0;
-
-		for (Map.Entry<FoodInstance, Integer> entry : uniqueFoods.entrySet()) {
-			FoodInstance foodInstance = entry.getKey();
-			Integer lastEaten = entry.getValue();
-
-			double diversityContribution = calculateDiversityContribution(foodInstance, lastEaten);
-			lastEaten++;
-
-			if (foodInstance.getItem().equals(food)) {
-				change -= diversityContribution;
-			}
-			else if (lastEaten >= SOLSweetPotatoConfig.size()) {
-				change -= diversityContribution;
-			}
-			else {
-				double newDiversityContribution = calculateDiversityContribution(foodInstance, lastEaten);
-				change += (newDiversityContribution - diversityContribution);
+		for (var entry : uniqueFoods.entrySet()) {
+			FoodInstance previousFood = entry.getKey();
+			int nextAge = meal.ageAfter(previousFood, entry.getValue());
+			double before = calculateDiversityContribution(previousFood, entry.getValue());
+			if (nextAge == EXPIRED || previousFood.equals(meal.recordedFood())) {
+				change -= before;
+			} else {
+				change += calculateDiversityContribution(previousFood, nextAge) - before;
 			}
 		}
-
-		if (SOLSweetPotatoConfig.shouldCount(food)) {
-			change += calculateDiversityContribution(new FoodInstance(food), 0);
-		}
-
+		if (meal.recordedFood() != null) change += calculateDiversityContribution(meal.recordedFood(), 0);
 		return change;
 	}
 
@@ -183,19 +178,21 @@ public final class FoodList implements FoodCapability {
 	}
 
 	public static double foodDiversity(Set<Map.Entry<FoodInstance, Integer>> foodData) {
+		return sumContributions(contributingFoods(foodData));
+	}
+
+	private static double sumContributions(Set<Map.Entry<FoodInstance, Integer>> foods) {
 		double diversity = 0;
-
-		for (Map.Entry<FoodInstance, Integer> entry : foodData) {
-			FoodInstance food = entry.getKey();
-			Integer lastEaten = entry.getValue();
-
-			diversity += calculateDiversityContribution(food, lastEaten);
+		for (var entry : foods) {
+			diversity += calculateDiversityContribution(entry.getKey(), entry.getValue());
 		}
-
 		return diversity;
 	}
 
 	public static double calculateDiversityContribution(FoodInstance food, int lastEaten) {
+		if (SOLSweetPotatoConfig.keepHighestDiversityFoods()) {
+			return SOLSweetPotatoConfig.shouldCount(food.getItem()) ? getComplexity(food) : 0.0;
+		}
 		return calculateTimePenalty(lastEaten) * getComplexity(food);
 	}
 
@@ -227,11 +224,13 @@ public final class FoodList implements FoodCapability {
 			return ConfigHandler.complexityMap.get(food);
 		}
 
-		var foodProperties = food.item.getFoodProperties();
+		var foodProperties = food.item.getDefaultInstance().getFoodProperties(null);
 		if (foodProperties != null)
 		{
-			var nutrition = foodProperties.getNutrition();
-			var saturation = nutrition * foodProperties.getSaturationModifier();
+			var nutrition = foodProperties.nutrition();
+			// 1.21 stores the actual saturation gain (2 * nutrition * modifier).
+            // Preserve the 1.19.2 balance, which used nutrition * modifier.
+            var saturation = foodProperties.saturation() / 2f;
 			var average = ((saturation + nutrition) / 2);
 
 			if (average < 5) {
@@ -244,8 +243,55 @@ public final class FoodList implements FoodCapability {
 		return SOLSweetPotatoConfig.defaultContribution();
 	}
 
+	private static Set<Map.Entry<FoodInstance, Integer>> highestDiversityFoods(
+			Set<Map.Entry<FoodInstance, Integer>> foodData) {
+		List<Map.Entry<FoodInstance, Integer>> sorted = new ArrayList<>(foodData);
+		sorted.removeIf(entry -> !SOLSweetPotatoConfig.shouldCount(entry.getKey().getItem()));
+		sorted.sort(Comparator.<Map.Entry<FoodInstance, Integer>>comparingDouble(
+				entry -> getComplexity(entry.getKey())).reversed()
+				.thenComparing(entry -> entry.getKey().toString()));
+		Set<Map.Entry<FoodInstance, Integer>> highest = new LinkedHashSet<>();
+		for (int i = 0; i < Math.min(SOLSweetPotatoConfig.size(), sorted.size()); i++) {
+			highest.add(new AbstractMap.SimpleImmutableEntry<>(sorted.get(i)));
+		}
+		return highest;
+	}
+
+	private static Set<Map.Entry<FoodInstance, Integer>> contributingFoods(Set<Map.Entry<FoodInstance, Integer>> foods) {
+		return SOLSweetPotatoConfig.keepHighestDiversityFoods() ? highestDiversityFoods(foods) : foods;
+	}
+
 	public Set<Map.Entry<FoodInstance, Integer>> getData() {
-		return uniqueFoods.entrySet();
+		return contributingFoods(uniqueFoods.entrySet());
+	}
+
+	public record EatenFood(Item item, int mealsAgo) {}
+
+	public record HistorySummary(double diversity, int mealsEaten, List<EatenFood> foods) {
+		public HistorySummary {
+			foods = List.copyOf(foods);
+		}
+	}
+
+	/** Read the score and ordered foods from the same selection without exposing live map entries. */
+	public HistorySummary summarizeHistory() {
+		var selected = getData();
+		List<EatenFood> foods = new ArrayList<>(selected.size());
+		for (var entry : selected) {
+			foods.add(new EatenFood(entry.getKey().getItem(), entry.getValue()));
+		}
+		if (!SOLSweetPotatoConfig.keepHighestDiversityFoods()) {
+			foods.sort(Comparator.comparingInt(EatenFood::mealsAgo));
+		}
+		return new HistorySummary(sumContributions(selected), foodsEaten, foods);
+	}
+
+	public double getDiversityContribution(Item food) {
+		FoodInstance instance = new FoodInstance(food);
+		if (!uniqueFoods.containsKey(instance)) return 0.0;
+		if (SOLSweetPotatoConfig.keepHighestDiversityFoods()
+				&& getData().stream().noneMatch(entry -> entry.getKey().equals(instance))) return 0.0;
+		return calculateDiversityContribution(instance, uniqueFoods.get(instance));
 	}
 
 	public int getLastEaten(Item food) {
@@ -258,14 +304,14 @@ public final class FoodList implements FoodCapability {
 
 	@Override
 	public boolean hasEaten(Item food) {
-		if (!food.isEdible()) return false;
+		if (food.getDefaultInstance().getFoodProperties(null) == null) return false;
 		return uniqueFoods.containsKey(new FoodInstance(food));
 	}
-	
+
 	public void clearFood() {
 		uniqueFoods.clear();
 	}
-	
+
 	public Set<FoodInstance> getEatenFoods() {
 		return uniqueFoods.keySet();
 	}
@@ -277,7 +323,7 @@ public final class FoodList implements FoodCapability {
 	public void resetFoodsEaten() {
 		foodsEaten = 0;
 	}
-	
+
 	public static class FoodListNotFoundException extends RuntimeException {
 		public FoodListNotFoundException() {
 			super("Player must have food capability attached, but none was found.");

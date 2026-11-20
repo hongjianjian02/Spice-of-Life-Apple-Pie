@@ -1,3 +1,4 @@
+# Modified 2026-11-15 by the hongjianjian02 fork for the unofficial NeoForge port.
 *.class
 *.iml
 *.ipr
@@ -21,3 +22,7 @@
 /classes/
 
 \.idea/
+
+# Local port verification logs
+/port-build.log
+/port-tests.log

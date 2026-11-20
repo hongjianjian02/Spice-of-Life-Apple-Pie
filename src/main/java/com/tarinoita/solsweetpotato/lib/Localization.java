@@ -1,42 +1,46 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.lib;
 
 import com.tarinoita.solsweetpotato.SOLSweetPotato;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
 
 public final class Localization {
-	
+
 	/** e.g. keyString("tooltip", "eaten_status.not_eaten_1") -> "tooltip.solapplepie.eatenStatus.not_eaten_1") */
 	public static String keyString(String domain, String path) {
 		return domain + "." + SOLSweetPotato.MOD_ID + "." + path;
 	}
-	
+
 	@OnlyIn(Dist.CLIENT)
 	public static String localized(String domain, String path, Object... args) {
 		return I18n.get(keyString(domain, path), args);
 	}
-	
+
 	public static MutableComponent localizedComponent(String domain, String path, Object... args) {
 		return Component.translatable(keyString(domain, path), args);
 	}
-	
+
 	@OnlyIn(Dist.CLIENT)
 	public static String localizedQuantity(String domain, String path, int number) {
 		return number == 1
 			? I18n.get(keyString(domain, path + ".singular"))
 			: I18n.get(keyString(domain, path + ".plural"), number);
 	}
-	
+
 	public static MutableComponent localizedQuantityComponent(String domain, String path, int number) {
 		return number == 1
 			? Component.translatable(keyString(domain, path + ".singular"))
 			: Component.translatable(keyString(domain, path + ".plural"), number);
 	}
-	
+
 	public static String formatBigNumber(int number) {
 		if (number < 1000) {
 			return "" + number;
@@ -46,6 +50,6 @@ public final class Localization {
 			return Math.round(number / 1000F) + "k";
 		}
 	}
-	
+
 	private Localization() {}
 }

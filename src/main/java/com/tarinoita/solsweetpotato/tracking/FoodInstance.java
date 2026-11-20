@@ -1,58 +1,64 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.tracking;
 
 import com.tarinoita.solsweetpotato.SOLSweetPotato;
 import net.minecraft.world.item.*;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import javax.annotation.Nullable;
 import java.util.Optional;
 
 public final class FoodInstance {
 	public final Item item;
-	
+
 	public FoodInstance(Item item) {
 		this.item = item;
 	}
-	
+
 	@Nullable
 	public static FoodInstance decode(String encoded) {
-		ResourceLocation name = new ResourceLocation(encoded);
-		
+		ResourceLocation name = ResourceLocation.tryParse(encoded);
+        if (name == null) return null;
+
 		// TODO it'd be nice to store (and maybe even count) references to missing items, in case the mod is added back in later
-		Item item = ForgeRegistries.ITEMS.getValue(name);
-		if (item == null) {
+		Item item = BuiltInRegistries.ITEM.get(name);
+		if (!BuiltInRegistries.ITEM.containsKey(name)) {
 			SOLSweetPotato.LOGGER.warn("attempting to load item into food list that is no longer registered: " + encoded + " (removing from list)");
 			return null;
 		}
-		
-		if (!item.isEdible()) {
+
+		if (item.getDefaultInstance().getFoodProperties(null) == null) {
 			SOLSweetPotato.LOGGER.warn("attempting to load item into food list that is no longer edible: " + encoded + " (ignoring in case it becomes edible again later)");
 		}
-		
+
 		return new FoodInstance(item);
 	}
-	
+
 	@Nullable
 	public String encode() {
-		return Optional.ofNullable(ForgeRegistries.ITEMS.getKey(item))
+		return Optional.ofNullable(BuiltInRegistries.ITEM.getKey(item))
 			.map(ResourceLocation::toString)
 			.orElse(null);
 	}
-	
+
 	@Override
 	public int hashCode() {
 		return item.hashCode();
 	}
-	
+
 	@Override
 	public boolean equals(Object obj) {
 		if (!(obj instanceof FoodInstance)) return false;
 		FoodInstance other = (FoodInstance) obj;
-		
+
 		return item.equals(other.item);
 	}
-	
+
 	public Item getItem() {
 		return item;
 	}

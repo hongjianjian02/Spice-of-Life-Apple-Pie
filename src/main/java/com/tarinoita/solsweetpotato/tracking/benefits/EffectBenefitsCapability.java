@@ -1,30 +1,29 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Modified 2026-11-17: preserve unlocked effect tiers and select the strongest active level.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.tracking.benefits;
 
 import com.tarinoita.solsweetpotato.tracking.CapabilityHandler;
-import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.ICapabilitySerializable;
-import net.minecraftforge.common.util.LazyOptional;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
-public class EffectBenefitsCapability implements ICapabilitySerializable<CompoundTag>, Iterable<EffectBenefit> {
+public class EffectBenefitsCapability implements Iterable<EffectBenefit> {
     private final Set<EffectBenefit> effectBenefits = new HashSet<>();
 
-    private final LazyOptional<EffectBenefitsCapability> capabilityOptional = LazyOptional.of(() -> this);
     private static final String NBT_KEY_EFFECT_BENEFITS = "effect_benefits";
 
     public static EffectBenefitsCapability get(Player player) {
-        return player.getCapability(CapabilityHandler.effectBenefitsCapability)
-                .orElseThrow(EffectBenefitsCapability.EffectsBenefitsNotFoundException::new);
+        return player.getData(CapabilityHandler.EFFECT_BENEFITS);
     }
 
     public void addEffectBenefit(EffectBenefit b) {
@@ -32,11 +31,17 @@ public class EffectBenefitsCapability implements ICapabilitySerializable<Compoun
     }
 
     public void addEffectBenefitUnique(EffectBenefit b) {
+        // Multiple unlocked thresholds may grant the same effect; retain its strongest level.
+        if (effectBenefits.stream().anyMatch(other -> other.getName().equals(b.getName())
+                && other.getValue() > b.getValue())) {
+            return;
+        }
         effectBenefits.removeIf(other -> other.getName().equals(b.getName()));
         addEffectBenefit(b);
     }
 
     public void removeEffectBenefit(EffectBenefit b) {
+        // A locked higher threshold must not remove an unlocked benefit with the same effect.
         effectBenefits.remove(b);
     }
 
@@ -44,13 +49,16 @@ public class EffectBenefitsCapability implements ICapabilitySerializable<Compoun
         effectBenefits.clear();
     }
 
-    @Nonnull
-    @Override
-    public <T> LazyOptional<T> getCapability(@Nonnull Capability<T> capability, @Nullable Direction side) {
-        return capability == CapabilityHandler.effectBenefitsCapability ? capabilityOptional.cast() : LazyOptional.empty();
+    public void tick(Player player) {
+        if (effectBenefits.stream().anyMatch(benefit -> benefit.needsRefresh(player))) {
+            refreshAll(player);
+        }
     }
 
-    @Override
+    public void refreshAll(Player player) {
+        effectBenefits.forEach(benefit -> benefit.refresh(player));
+    }
+
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
 
@@ -61,7 +69,6 @@ public class EffectBenefitsCapability implements ICapabilitySerializable<Compoun
         return tag;
     }
 
-    @Override
     public void deserializeNBT(CompoundTag tag) {
     	ListTag list = tag.getList(NBT_KEY_EFFECT_BENEFITS, Tag.TAG_COMPOUND);
 

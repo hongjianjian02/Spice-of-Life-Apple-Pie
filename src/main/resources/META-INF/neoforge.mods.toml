@@ -1,0 +1,26 @@
+# Modified 2026-11-15 by hongjianjian02: unofficial NeoForge port; original LGPL-2.1 license retained.
+modLoader="javafml"
+loaderVersion="[4,)"
+license="LGPL-2.1"
+[[mods]]
+modId="solapplepie"
+version="${mod_version}"
+displayName="Spice of Life: Apple Pie Edition (Unofficial NeoForge Port)"
+authors="tarinoita; NeoForge port maintained by hongjianjian02"
+credits="Vice, creator of Apple Pie Edition; Kevun1, creator of Potato Edition; the Carrot Edition team; Cyclic / Samson Bassett (Lothrazar)"
+logoFile="logo 160.png"
+displayURL="https://github.com/hongjianjian02/Spice-of-Life-Apple-Pie"
+issueTrackerURL="https://github.com/hongjianjian02/Spice-of-Life-Apple-Pie/issues"
+description='''Unofficial Minecraft 1.21.1 NeoForge port, not an official upstream release. Rewards a diverse diet with configurable attributes and effects. Benefits require maintaining dietary variety.'''
+[[dependencies.solapplepie]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.265,21.2)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.solapplepie]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+ordering="NONE"
+side="BOTH"

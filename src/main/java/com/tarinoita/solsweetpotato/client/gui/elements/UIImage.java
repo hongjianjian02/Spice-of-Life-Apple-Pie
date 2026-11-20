@@ -1,8 +1,13 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.client.gui.elements;
 
-import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiGraphics;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.gui.GuiComponent;
+
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.resources.ResourceLocation;
 
@@ -11,29 +16,29 @@ import java.awt.*;
 public class UIImage extends UIElement {
 	public Image image;
 	public float alpha = 1;
-	
+
 	public UIImage(Image image) {
 		this(new Rectangle(image.partOfTexture.getSize()), image);
 	}
-	
+
 	public UIImage(Rectangle frame, Image image) {
 		super(frame);
-		
+
 		this.image = image;
 	}
-	
+
 	@Override
-	protected void render(PoseStack matrices) {
+	protected void render(GuiGraphics matrices) {
 		super.render(matrices);
-		
+
 		int imageWidth = image.partOfTexture.width;
 		int imageHeight = image.partOfTexture.height;
-		
+
 		RenderSystem.setShader(GameRenderer::getPositionTexShader);
 		RenderSystem.setShaderTexture(0, image.textureLocation);
 
-		GuiComponent.blit(
-			matrices,
+		matrices.blit(
+            image.textureLocation,
 			frame.x + (int) Math.floor((frame.width - imageWidth) / 2d),
 			frame.y + (int) Math.floor((frame.height - imageHeight) / 2d),
 			0,
@@ -42,11 +47,11 @@ public class UIImage extends UIElement {
 			256, 256
 		);
 	}
-	
+
 	public static class Image {
 		public final ResourceLocation textureLocation;
 		public final Rectangle partOfTexture;
-		
+
 		public Image(ResourceLocation textureLocation, Rectangle partOfTexture) {
 			this.textureLocation = textureLocation;
 			this.partOfTexture = partOfTexture;

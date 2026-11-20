@@ -1,3 +1,4 @@
+# Modified 2026-11-15 by the hongjianjian02 fork for the unofficial NeoForge port.
 language: java
 sudo: false
 cache:
@@ -9,5 +10,5 @@ jdk:
   - oraclejdk8
 before_install:
   - chmod a+x gradlew
-install: ./gradlew setupCIWorkspace -S
+install: ./gradlew classes -S
 script: ./gradlew clean build -S

@@ -1,5 +1,9 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.tracking.benefits;
-
 
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.nbt.ByteTag;
@@ -8,9 +12,7 @@ import net.minecraft.nbt.DoubleTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.ResourceLocationException;
-import net.minecraft.core.Registry;
-import net.minecraftforge.registries.IForgeRegistry;
-import net.minecraftforge.registries.RegistryManager;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 
@@ -18,38 +20,56 @@ import net.minecraft.world.effect.MobEffectInstance;
  * Each instance represents a specific potion effect. Handles logic for application to player.
  */
 public final class EffectBenefit extends Benefit{
-    private MobEffect effect;
-    private final int DEFAULT_DURATION = 300;
-    private final int REAPPLY_DURATION = 200;
+    private net.minecraft.core.Holder<MobEffect> effect;
+    public static final int DEFAULT_DURATION_TICKS = 300;
+    public static final int REFRESH_THRESHOLD_TICKS = 200;
 
     public EffectBenefit(String name, double value, double threshold, boolean detriment) {
         super("effect", name, value, threshold, detriment);
     }
 
     public void applyTo(Player player) {
-        if (!checkUsage() || player.level.isClientSide)
+        if (!checkUsage() || player.level().isClientSide)
             return;
 
         EffectBenefitsCapability effectBenefits = EffectBenefitsCapability.get(player);
         effectBenefits.addEffectBenefitUnique(this);
     }
 
-    public void onTick(Player player) {
-        if (!checkUsage() || player.level.isClientSide)
-            return;
+    public boolean needsRefresh(Player player) {
+        if (!checkUsage() || player.level().isClientSide)
+            return false;
 
-        // Only refresh this effect when less than REAPPLY_DURATION ticks remaining
         MobEffectInstance currentEffect = player.getEffect(effect);
-        if (currentEffect != null && currentEffect.getAmplifier() >= (int) value
-                && currentEffect.getDuration() > REAPPLY_DURATION) {
-            return;
-        }
+        return shouldRefresh(currentEffect != null,
+                currentEffect == null ? -1 : currentEffect.getAmplifier(),
+                currentEffect == null ? 0 : currentEffect.getDuration(),
+                (int) value);
+    }
 
-        player.addEffect(new MobEffectInstance(effect, DEFAULT_DURATION, (int) value, false, false));
+    public static boolean shouldRefresh(boolean hasEffect, int currentAmplifier,
+            int currentDuration, int benefitAmplifier) {
+        if (!hasEffect || currentAmplifier < benefitAmplifier)
+            return true;
+
+        return currentAmplifier == benefitAmplifier
+                && currentDuration <= REFRESH_THRESHOLD_TICKS;
+    }
+
+    public void refresh(Player player) {
+        if (!checkUsage() || player.level().isClientSide)
+            return;
+
+        MobEffectInstance currentEffect = player.getEffect(effect);
+        // Keep a stronger effect supplied by another source; do not downgrade it.
+        if (currentEffect != null && currentEffect.getAmplifier() > (int) value)
+            return;
+
+        player.addEffect(new MobEffectInstance(effect, DEFAULT_DURATION_TICKS, (int) value, false, false));
     }
 
     public void removeFrom(Player player) {
-        if (!checkUsage() || player.level.isClientSide)
+        if (!checkUsage() || player.level().isClientSide)
             return;
 
         EffectBenefitsCapability effectBenefits = EffectBenefitsCapability.get(player);
@@ -70,9 +90,8 @@ public final class EffectBenefit extends Benefit{
     }
 
     private void createEffect() {
-        IForgeRegistry<MobEffect> registry = RegistryManager.ACTIVE.getRegistry(Registry.MOB_EFFECT_REGISTRY);
         try {
-            effect = registry.getValue(new ResourceLocation(name));
+            effect = BuiltInRegistries.MOB_EFFECT.getHolder(ResourceLocation.parse(name)).orElse(null);
         }
         catch (ResourceLocationException e) {
             markInvalid();

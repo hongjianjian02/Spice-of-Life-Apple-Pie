@@ -1,3 +1,8 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.tracking;
 
 import com.tarinoita.solsweetpotato.SOLSweetPotato;
@@ -12,17 +17,16 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.event.ForgeEventFactory;
-import net.minecraftforge.event.entity.living.LivingEntityUseItemEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.eventbus.api.EventPriority;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.minecraft.core.registries.BuiltInRegistries;
 
-
-@Mod.EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
+@EventBusSubscriber(modid = SOLSweetPotato.MOD_ID)
 public final class FoodTracker {
 
 	@SubscribeEvent
@@ -34,7 +38,7 @@ public final class FoodTracker {
 		Player player = (Player) event.getEntity();
 
 		Item usedItem = event.getItem().getItem();
-		if (!usedItem.isEdible() && usedItem != Items.CAKE) return;
+		if (event.getItem().getFoodProperties(player) == null && usedItem != Items.CAKE) return;
 		if (usedItem instanceof FoodContainerItem) return;
 
 		updateFoodList(usedItem, player);
@@ -53,7 +57,7 @@ public final class FoodTracker {
 		Item eatenItem = Items.CAKE;
 		// If Farmer's Delight is installed, replace "cake" with FD's "cake slice"
 		if (ModList.get().isLoaded("farmersdelight")) {
-			eatenItem = ForgeRegistries.ITEMS.getValue(new ResourceLocation("farmersdelight:cake_slice"));
+			eatenItem = BuiltInRegistries.ITEM.get(ResourceLocation.parse("farmersdelight:cake_slice"));
 		}
 		ItemStack eatenItemStack = new ItemStack(eatenItem);
 
@@ -61,7 +65,7 @@ public final class FoodTracker {
 				event.getHand() == InteractionHand.MAIN_HAND && !event.getLevel().isClientSide) {
 			// Fire an event instead of directly updating the food list, so that
 			// SoL: Carrot Edition registers the eaten food too.
-			ForgeEventFactory.onItemUseFinish(player, eatenItemStack, 0, ItemStack.EMPTY);
+			EventHooks.onItemUseFinish(player, eatenItemStack, 0, ItemStack.EMPTY);
 		}
 	}
 

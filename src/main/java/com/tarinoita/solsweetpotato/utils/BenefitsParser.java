@@ -1,3 +1,8 @@
+/*
+ * Modified 2026-11-15 by the hongjianjian02 fork: unofficial Minecraft 1.21.1
+ * NeoForge port and associated regression tests / distribution notices.
+ * Original authorship and license notices are retained; see LICENSE.txt and THIRD_PARTY_NOTICES.md.
+ */
 package com.tarinoita.solsweetpotato.utils;
 
 import com.tarinoita.solsweetpotato.SOLSweetPotato;
@@ -18,6 +23,8 @@ public class BenefitsParser {
             List<Benefit> thresholdBenefits = new ArrayList<>();
 
             for (String benefitString : thresholdBenefitsString) {
+                benefitString = benefitString.trim();
+                if (benefitString.isEmpty()) continue;
                 boolean is_detriment = false;
                 switch(benefitString.charAt(0)){
                     case '-':
@@ -39,6 +46,7 @@ public class BenefitsParser {
                 if (benefitArgs[0].equals("attribute")) {
                     if (len < 3) {
                         SOLSweetPotato.LOGGER.warn("Need to specify a value when defining an attribute benefit: " + benefitString);
+                        continue;
                     }
                     benefitType = "attribute";
                 } else if (benefitArgs[0].equals("effect")) {
@@ -51,7 +59,13 @@ public class BenefitsParser {
                 String benefitName = benefitArgs[1];
                 double benefitValue = 0;
                 if (len > 2) {
-                    benefitValue = Double.parseDouble(benefitArgs[2]);
+                    try {
+                        benefitValue = Double.parseDouble(benefitArgs[2]);
+                        if (!Double.isFinite(benefitValue)) throw new NumberFormatException();
+                    } catch (NumberFormatException exception) {
+                        SOLSweetPotato.LOGGER.warn("Invalid benefit value: " + benefitString);
+                        continue;
+                    }
                 }
 
                 if (benefitType.equals("attribute")) {
